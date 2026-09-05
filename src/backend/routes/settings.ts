@@ -1,0 +1,536 @@
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { dbRun, dbAll, dbGet } from '../db/init.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
+
+const router = express.Router();
+
+router.use(authenticate);
+
+// Get Auto-Logout settings (accessible by authenticated users, e.g. Admin and Guard)
+router.get('/auto-logout', async (req, res) => {
+  try {
+    const row = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
+    if (row && row.value) {
+      const parsed = JSON.parse(row.value);
+      return res.json({
+        enabled: Boolean(parsed.enabled),
+        durationValue: Number(parsed.durationValue) || 30,
+        durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
+        warningDurationValue: Number(parsed.warningDurationValue) || 30,
+        warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds'
+      });
+    }
+    res.json({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds' });
+  } catch (err: any) {
+    console.error('Error fetching auto-logout settings:', err);
+    res.json({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds' });
+  }
+});
+
+// Update Auto-Logout settings (Admin only)
+router.put('/auto-logout', requireAdmin, async (req, res) => {
+  try {
+    const { enabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit } = req.body;
+    const isEnabled = Boolean(enabled);
+    let parsedValue = parseInt(durationValue, 10);
+    if (isNaN(parsedValue) || parsedValue <= 0) {
+      parsedValue = 30;
+    }
+    const unit = durationUnit === 'hours' ? 'hours' : 'minutes';
+
+    let parsedWarningValue = parseInt(warningDurationValue, 10);
+    if (isNaN(parsedWarningValue) || parsedWarningValue <= 0) {
+      parsedWarningValue = 30;
+    }
+    const warningUnit = warningDurationUnit === 'minutes' ? 'minutes' : 'seconds';
+
+    const newSettings = {
+      enabled: isEnabled,
+      durationValue: parsedValue,
+      durationUnit: unit,
+      warningDurationValue: parsedWarningValue,
+      warningDurationUnit: warningUnit
+    };
+
+    await dbRun(
+      'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      ['auto_logout', JSON.stringify(newSettings)]
+    );
+
+    res.json({
+      success: true,
+      message: 'Automatic logout settings saved successfully.',
+      settings: newSettings
+    });
+  } catch (err: any) {
+    console.error('Error updating auto-logout settings:', err);
+    res.status(500).json({ error: err.message || 'Failed to update auto-logout settings' });
+  }
+});
+
+// Helper to convert any photo (local file path, remote URL, or base64) to a self-contained base64 data URI
+async function getPhotoAsDataUrl(photoPath: string | null | undefined): Promise<string | null> {
+  if (!photoPath || typeof photoPath !== 'string') return null;
+  const trimmed = photoPath.trim();
+  if (!trimmed) return null;
+
+  // Already a base64 data URI
+  if (trimmed.startsWith('data:image/')) return trimmed;
+
+  // Check local file on disk
+  try {
+    const cleanPath = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed;
+    const fullPath = path.isAbsolute(trimmed) ? trimmed : path.join(process.cwd(), cleanPath);
+    if (fs.existsSync(fullPath)) {
+      const ext = path.extname(fullPath).toLowerCase().replace('.', '') || 'png';
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
+      const fileBuffer = fs.readFileSync(fullPath);
+      return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+    }
+  } catch (err) {
+    console.warn('Error reading local photo file for backup:', photoPath, err);
+  }
+
+  // If it's a remote URL (e.g. from previous environment or CDN), fetch and embed as base64
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const resp = await fetch(trimmed, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        const contentType = resp.headers.get('content-type') || 'image/jpeg';
+        const arrayBuf = await resp.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString('base64');
+        return `data:${contentType};base64,${base64}`;
+      }
+    } catch (fetchErr) {
+      console.warn('Could not fetch remote photo URL during backup:', trimmed, fetchErr);
+    }
+  }
+
+  return trimmed;
+}
+
+function safeParseDateToMs(val: any): number {
+  if (val === null || val === undefined || val === '') return Date.now();
+  if (typeof val === 'number') return isNaN(val) ? Date.now() : val;
+  if (val instanceof Date) return val.getTime();
+
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return Date.now();
+
+    if (/^\d{10,15}$/.test(trimmed)) {
+      const num = parseInt(trimmed, 10);
+      if (!isNaN(num)) return num;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(trimmed)) {
+      const iso = trimmed.replace(' ', 'T') + 'Z';
+      const parsed = new Date(iso).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(trimmed)) {
+      const parsed = new Date(trimmed + 'Z').getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+
+    const parsed = new Date(trimmed).getTime();
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  return Date.now();
+}
+
+function safeParseOptionalDateToMs(val: any): number | undefined {
+  if (val === null || val === undefined || val === '' || val === 'null' || val === 'undefined') {
+    return undefined;
+  }
+  if (typeof val === 'string' && !val.trim()) {
+    return undefined;
+  }
+  return safeParseDateToMs(val);
+}
+
+// Helper to retrieve all visitors with complete visit histories from the database
+async function getAllVisitorsWithHistory(): Promise<any[]> {
+  const rawVisitors = await dbAll<any>('SELECT * FROM visitors ORDER BY id DESC');
+  const rawVisits = await dbAll<any>('SELECT * FROM visits ORDER BY id ASC');
+
+  const visitsMap: Record<string, any[]> = {};
+  if (Array.isArray(rawVisits)) {
+    for (const v of rawVisits) {
+      const vKey = String(v.visitor_id);
+      if (!visitsMap[vKey]) visitsMap[vKey] = [];
+      visitsMap[vKey].push({
+        id: String(v.id),
+        visitorType: v.visitor_type || 'Guest',
+        visiting: v.visit_info || '',
+        purpose: v.purpose || 'Visit',
+        status: v.status || 'signed-in',
+        signInTime: safeParseDateToMs(v.time_in || v.created_at),
+        signOutTime: safeParseOptionalDateToMs(v.time_out)
+      });
+    }
+  }
+
+  const visitors = await Promise.all((rawVisitors || []).map(async (v: any) => {
+    const photoDataUrl = await getPhotoAsDataUrl(v.photo);
+    const vKey = String(v.id);
+    const parsedSignIn = safeParseDateToMs(v.time_in || v.created_at);
+    const parsedSignOut = safeParseOptionalDateToMs(v.time_out);
+    const history = visitsMap[vKey] || [{
+      id: String(v.id),
+      visitorType: v.visitor_type || 'Guest',
+      visiting: v.visit_info || '',
+      purpose: v.purpose || 'Visit',
+      status: v.status || 'signed-in',
+      signInTime: parsedSignIn,
+      signOutTime: parsedSignOut
+    }];
+
+    return {
+      id: String(v.id),
+      idNumber: v.visitor_number || v.id_number || String(v.id),
+      visitorNumber: v.visitor_number || String(v.id),
+      name: v.full_name,
+      visitorType: v.visitor_type || 'Guest',
+      visiting: v.visit_info || 'Walk-in Visit',
+      idType: v.id_type || 'School ID',
+      contactNumber: v.contact_number || '',
+      address: v.address || '',
+      purpose: v.purpose || 'Visit',
+      photo: photoDataUrl,
+      photo_url: photoDataUrl,
+      photoDataUrl: photoDataUrl,
+      registrationType: v.registration_type || 'Walk-in',
+      status: v.status || 'signed-in',
+      signInTime: parsedSignIn,
+      signOutTime: parsedSignOut,
+      createdAt: v.created_at,
+      history
+    };
+  }));
+
+  return visitors;
+}
+
+// Generate complete system backup payload with all photos converted to base64 Data URLs
+router.get('/backup', async (req, res) => {
+  try {
+    const rawEvents = await dbAll<any>('SELECT * FROM events ORDER BY id ASC');
+    const rawPreRegs = await dbAll<any>('SELECT * FROM pre_registrations ORDER BY id ASC');
+    const visitors = await getAllVisitorsWithHistory();
+
+    const events = (rawEvents || []).map((e: any) => ({
+      id: e.id,
+      name: e.event_name,
+      eventName: e.event_name,
+      description: e.description || '',
+      location: e.location || '',
+      date: e.date,
+      registrationLink: e.registration_link || `/register/${e.id}`,
+      status: e.status || 'active'
+    }));
+
+    res.json({
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      visitors,
+      events,
+      preRegistrations: rawPreRegs || []
+    });
+  } catch (err: any) {
+    console.error('Error creating backup:', err);
+    res.status(500).json({ error: err.message || 'Failed to create backup' });
+  }
+});
+
+// Permanently clear all visitors, visits, events, pre-registrations and reports
+router.post('/clear-data', async (req, res) => {
+  try {
+    // 1. Delete records from all transactional and log tables
+    await dbRun('DELETE FROM visits');
+    await dbRun('DELETE FROM visitors');
+    await dbRun('DELETE FROM pre_registrations');
+    await dbRun('DELETE FROM events');
+
+    // 2. Reset SQLite autoincrement sequences for cleared tables so counters start from 1 (#0001)
+    try {
+      await dbRun("DELETE FROM sqlite_sequence WHERE name IN ('visitors', 'visits', 'events', 'pre_registrations')");
+    } catch (seqErr) {
+      console.warn('sqlite_sequence reset note:', seqErr);
+    }
+
+    // 3. Clean up uploaded photo files from uploads directory
+    try {
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (fs.existsSync(uploadsDir)) {
+        const files = fs.readdirSync(uploadsDir);
+        for (const file of files) {
+          const filePath = path.join(uploadsDir, file);
+          if (fs.lstatSync(filePath).isFile()) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      }
+    } catch (fileErr) {
+      console.warn('Uploads cleanup note:', fileErr);
+    }
+
+    // Notice: The `users` table is strictly preserved, keeping Admin and Guard accounts intact.
+
+    res.json({
+      success: true,
+      message: 'All visitor records, visit logs, events, pre-registrations, and report logs have been permanently cleared. Visitor counter reset to #0001.'
+    });
+  } catch (err: any) {
+    console.error('Error clearing data:', err);
+    res.status(500).json({ error: err.message || 'Failed to clear system data' });
+  }
+});
+
+// Safe helper to generate next visitor number
+async function getNextSafeVisitorNumber(): Promise<string> {
+  const allVisitors = await dbAll<any>('SELECT visitor_number FROM visitors');
+  let maxNum = 0;
+  if (Array.isArray(allVisitors)) {
+    for (const v of allVisitors) {
+      if (v.visitor_number) {
+        const num = parseInt(String(v.visitor_number).replace(/\D/g, ''), 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+  }
+  return (maxNum + 1).toString().padStart(4, '0');
+}
+
+// Restore and merge data from backup payload without deleting or replacing current data
+router.post('/restore-data', async (req, res) => {
+  try {
+    const { visitors, events, preRegistrations } = req.body;
+
+    // 1. Merge Events
+    if (Array.isArray(events)) {
+      for (const ev of events) {
+        const eventName = (ev.name || ev.event_name || ev.eventName || '').trim();
+        const date = ev.date;
+        if (!eventName || !date) continue;
+        const desc = ev.description || '';
+        const loc = ev.location || '';
+        const status = ev.status || 'active';
+        
+        const existingEvent = await dbGet<any>(
+          'SELECT id FROM events WHERE LOWER(TRIM(event_name)) = LOWER(TRIM(?)) AND date = ?',
+          [eventName, date]
+        );
+
+        if (!existingEvent) {
+          const resInsert = await dbRun(
+            'INSERT INTO events (event_name, description, location, date, status) VALUES (?, ?, ?, ?, ?)',
+            [eventName, desc, loc, date, status]
+          );
+          if (resInsert.lastID) {
+            const regLink = ev.registrationLink || ev.registration_link || `/register/${resInsert.lastID}`;
+            await dbRun('UPDATE events SET registration_link = ? WHERE id = ?', [regLink, resInsert.lastID]);
+          }
+        }
+      }
+    }
+
+    // 2. Merge Pre-Registrations
+    if (Array.isArray(preRegistrations)) {
+      for (const pr of preRegistrations) {
+        const fullName = (pr.full_name || pr.name || '').trim();
+        const eventId = pr.event_id || pr.eventId;
+        if (!fullName || !eventId) continue;
+
+        const existingPR = await dbGet<any>(
+          'SELECT id FROM pre_registrations WHERE event_id = ? AND LOWER(TRIM(full_name)) = LOWER(TRIM(?))',
+          [eventId, fullName]
+        );
+
+        if (!existingPR) {
+          await dbRun(`
+            INSERT INTO pre_registrations (
+              event_id, full_name, visitor_type, visit_info, id_type, id_number,
+              contact_number, address, purpose, photo, registration_type, status,
+              qr_code, visitor_number
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            eventId, fullName, pr.visitor_type || 'Guest', pr.visit_info || '',
+            pr.id_type || 'School ID', pr.id_number || '', pr.contact_number || '',
+            pr.address || '', pr.purpose || 'Event Attendance', pr.photo || null,
+            pr.registration_type || 'Online Registration', pr.status || 'pre-registered',
+            pr.qr_code || '', pr.visitor_number || ''
+          ]);
+        }
+      }
+    }
+
+    // 3. Merge Visitors & Visits
+    if (Array.isArray(visitors)) {
+      for (const v of visitors) {
+        const fullName = (v.name || v.full_name || '').trim();
+        if (!fullName) continue;
+
+        let visNum = String(v.idNumber || v.visitor_number || v.visitorNumber || '').trim();
+        const vType = v.visitorType || v.visitor_type || 'Guest';
+        const vInfo = v.visiting || v.visit_info || 'Walk-in Visit';
+        const idType = v.idType || v.id_type || 'School ID';
+        const idNum = v.idNumber || v.id_number || visNum;
+        const contact = v.contactNumber || v.contact_number || '';
+        const address = v.address || '';
+        const purpose = v.purpose || 'Visit';
+        const status = v.status || 'signed-in';
+        const regType = v.registrationType || v.registration_type || 'Walk-in';
+        
+        // Handle photo restoration: ensure complete Base64 data URL is retained in DB
+        const rawPhoto = v.photo_url || v.photoDataUrl || v.photo || v.photoPath || v.image || v.image_url || null;
+        let persistentPhoto: string | null = null;
+
+        if (rawPhoto && typeof rawPhoto === 'string') {
+          const trimmedPhoto = rawPhoto.trim();
+          if (trimmedPhoto.startsWith('data:image/')) {
+            persistentPhoto = trimmedPhoto;
+          } else {
+            persistentPhoto = await getPhotoAsDataUrl(trimmedPhoto);
+          }
+        }
+
+        const timeIn = v.signInTime ? new Date(v.signInTime).toISOString() : (v.timeIn || v.time_in || new Date().toISOString());
+        const timeOut = v.signOutTime ? new Date(v.signOutTime).toISOString() : (v.timeOut || v.time_out || null);
+
+        // Check if this person already exists in current DB by full name, contact number, or ID
+        let existing = await dbGet<any>(
+          `SELECT * FROM visitors WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) ORDER BY id ASC LIMIT 1`,
+          [fullName]
+        );
+
+        if (!existing && contact && contact.trim()) {
+          existing = await dbGet<any>(
+            `SELECT * FROM visitors WHERE contact_number IS NOT NULL AND contact_number != '' AND TRIM(contact_number) = TRIM(?) ORDER BY id ASC LIMIT 1`,
+            [contact.trim()]
+          );
+        }
+
+        if (!existing && idType && idNum && idNum.trim()) {
+          existing = await dbGet<any>(
+            `SELECT * FROM visitors WHERE id_type = ? AND id_number IS NOT NULL AND id_number != '' AND TRIM(id_number) = TRIM(?) ORDER BY id ASC LIMIT 1`,
+            [idType.trim(), idNum.trim()]
+          );
+        }
+
+        let visitorId: number;
+        let finalVisNum: string;
+
+        if (existing) {
+          visitorId = existing.id;
+          finalVisNum = existing.visitor_number;
+
+          // Do not overwrite existing/newer visitor details with older backup data; only fill missing photo
+          if (!existing.photo && persistentPhoto) {
+            await dbRun(`UPDATE visitors SET photo = ? WHERE id = ?`, [persistentPhoto, visitorId]);
+          }
+          if (!existing.contact_number && contact) {
+            await dbRun(`UPDATE visitors SET contact_number = ? WHERE id = ?`, [contact, visitorId]);
+          }
+          if (!existing.address && address) {
+            await dbRun(`UPDATE visitors SET address = ? WHERE id = ?`, [address, visitorId]);
+          }
+        } else {
+          // New visitor from backup being added to existing data
+          if (!visNum) {
+            finalVisNum = await getNextSafeVisitorNumber();
+          } else {
+            // Check if this ID number is already taken by another visitor in DB
+            const numberTaken = await dbGet<any>('SELECT id FROM visitors WHERE visitor_number = ?', [visNum]);
+            if (numberTaken) {
+              finalVisNum = await getNextSafeVisitorNumber();
+            } else {
+              finalVisNum = visNum;
+            }
+          }
+
+          const result = await dbRun(`
+            INSERT INTO visitors (
+              visitor_number, visitor_type, visit_info, id_type, id_number,
+              full_name, contact_number, address, purpose, photo, registration_type, status,
+              time_in, time_out
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            finalVisNum, vType, vInfo, idType, idNum || finalVisNum,
+            fullName, contact, address, purpose, persistentPhoto, regType, status,
+            timeIn, timeOut
+          ]);
+
+          visitorId = result.lastID;
+        }
+
+        // Merge visit history for this visitor
+        const visitsToMerge = Array.isArray(v.history) && v.history.length > 0
+          ? v.history
+          : [{
+              visitorType: vType,
+              visiting: vInfo,
+              purpose,
+              status,
+              signInTime: v.signInTime,
+              signOutTime: v.signOutTime,
+              time_in: timeIn,
+              time_out: timeOut
+            }];
+
+        for (const h of visitsToMerge) {
+          const hTimeIn = h.signInTime ? new Date(h.signInTime).toISOString() : (h.time_in || timeIn);
+          const hTimeOut = h.signOutTime ? new Date(h.signOutTime).toISOString() : (h.time_out || null);
+
+          // Check if this specific visit is already recorded in visits table
+          const existingVisit = await dbGet<any>(
+            `SELECT id FROM visits WHERE visitor_id = ? AND time_in = ?`,
+            [visitorId, hTimeIn]
+          );
+
+          if (!existingVisit) {
+            await dbRun(`
+              INSERT INTO visits (visitor_id, visitor_number, visitor_type, visit_info, purpose, status, registration_type, time_in, time_out)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              visitorId,
+              finalVisNum,
+              h.visitorType || vType,
+              h.visiting || vInfo,
+              h.purpose || purpose,
+              h.status || 'signed-in',
+              regType,
+              hTimeIn,
+              hTimeOut
+            ]);
+          }
+        }
+      }
+    }
+
+    // Retrieve full merged dataset from database
+    const allMergedVisitors = await getAllVisitorsWithHistory();
+    const allEvents = await dbAll<any>('SELECT * FROM events ORDER BY id ASC');
+
+    res.json({
+      success: true,
+      message: 'Backup data merged successfully with existing data',
+      visitors: allMergedVisitors,
+      events: allEvents
+    });
+  } catch (err: any) {
+    console.error('Error restoring data:', err);
+    res.status(500).json({ error: err.message || 'Failed to restore data' });
+  }
+});
+
+export default router;

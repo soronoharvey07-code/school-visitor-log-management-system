@@ -1,0 +1,10 @@
+{
+  "name": "Remix School Visitor Log Management",
+  "description": "School visitor log management system with dedicated visitor registration, all visitors log view, event attendance, and reports.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

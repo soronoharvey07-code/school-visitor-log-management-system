@@ -3,7 +3,49 @@ import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 
-export const dbPath = path.join(process.cwd(), 'database.sqlite');
+function getDatabasePath(): string {
+  // If explicitly Vercel serverless environment (where root is strictly read-only)
+  if (process.env.VERCEL) {
+    const tmpDbPath = path.join('/tmp', 'database.sqlite');
+    if (!fs.existsSync(tmpDbPath)) {
+      const rootDbPath = path.join(process.cwd(), 'database.sqlite');
+      if (fs.existsSync(rootDbPath)) {
+        try {
+          fs.copyFileSync(rootDbPath, tmpDbPath);
+          console.log('Seeded /tmp/database.sqlite from project bundle');
+        } catch (copyErr) {
+          console.warn('Could not copy template database to /tmp:', copyErr);
+        }
+      }
+    }
+    return tmpDbPath;
+  }
+
+  // Check if current working directory is writable by current process
+  try {
+    const testFile = path.join(process.cwd(), '.write-test-' + Date.now());
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return path.join(process.cwd(), 'database.sqlite');
+  } catch {
+    // If not writable (e.g. read-only container root), fallback to /tmp
+    const tmpDbPath = path.join('/tmp', 'database.sqlite');
+    if (!fs.existsSync(tmpDbPath)) {
+      const rootDbPath = path.join(process.cwd(), 'database.sqlite');
+      if (fs.existsSync(rootDbPath)) {
+        try {
+          fs.copyFileSync(rootDbPath, tmpDbPath);
+          console.log('Fallback seeded /tmp/database.sqlite from project bundle');
+        } catch (copyErr) {
+          console.warn('Could not copy template database to /tmp:', copyErr);
+        }
+      }
+    }
+    return tmpDbPath;
+  }
+}
+
+export const dbPath = getDatabasePath();
 
 export let db = new sqlite3.Database(dbPath, (err) => {
   if (err) {

@@ -613,17 +613,17 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
                       type="button"
                       onClick={() => handleSaveAutoLogout()}
                       disabled={isSavingAutoLogout}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                     >
                       {isSavingAutoLogout ? (
                         <>
-                          <Loader2 size={15} className="animate-spin" />
+                          <Loader2 size={14} className="animate-spin" />
                           <span>Saving...</span>
                         </>
                       ) : (
                         <>
-                          <Save size={15} />
-                          <span>Save Settings</span>
+                          <Save size={14} />
+                          <span>Save</span>
                         </>
                       )}
                     </button>

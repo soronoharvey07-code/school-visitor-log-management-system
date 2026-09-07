@@ -1,7 +1,7 @@
 const BASE_URL = '/api';
 
 function getToken() {
-  return localStorage.getItem('token');
+  return sessionStorage.getItem('token') || localStorage.getItem('token');
 }
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -16,8 +16,12 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   
   if (!res.ok) {
     if (res.status === 401 && url !== '/login') {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('school-current-user');
+      sessionStorage.removeItem('auth_login_time');
       localStorage.removeItem('token');
       localStorage.removeItem('school-current-user');
+      localStorage.removeItem('auth_login_time');
       window.location.href = '/';
       return null;
     }
@@ -97,7 +101,19 @@ export const API = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(backupData)
   }),
-  getAutoLogoutSettings: () => fetchWithAuth('/settings/auto-logout'),
+  getAutoLogoutSettings: async () => {
+    try {
+      const token = getToken();
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${BASE_URL}/settings/auto-logout`, { headers });
+      if (res.ok) {
+        return await res.json();
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
   updateAutoLogoutSettings: (settings: { 
     enabled: boolean; 
     durationValue: number; 

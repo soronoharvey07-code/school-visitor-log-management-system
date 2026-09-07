@@ -48,5 +48,37 @@ export interface AutoLogoutSettings {
   durationUnit: 'minutes' | 'hours';
   warningDurationValue: number;
   warningDurationUnit: 'seconds' | 'minutes';
+  isConfigured?: boolean;
+}
+
+export const DEFAULT_AUTO_LOGOUT_SETTINGS: AutoLogoutSettings = {
+  enabled: false,
+  durationValue: 30,
+  durationUnit: 'minutes',
+  warningDurationValue: 30,
+  warningDurationUnit: 'seconds',
+  isConfigured: false
+};
+
+export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
+  try {
+    const raw = localStorage.getItem('auto_logout_settings');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return {
+          enabled: Boolean(parsed.enabled),
+          durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
+          durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
+          warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
+          warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
+          isConfigured: Boolean(parsed.isConfigured)
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading stored auto-logout settings:', err);
+  }
+  return { ...DEFAULT_AUTO_LOGOUT_SETTINGS };
 }
 

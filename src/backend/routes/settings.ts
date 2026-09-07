@@ -6,9 +6,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.use(authenticate);
-
-// Get Auto-Logout settings (accessible by authenticated users, e.g. Admin and Guard)
+// 1. Get Auto-Logout settings (Publicly accessible on application startup before authentication)
 router.get('/auto-logout', async (req, res) => {
   try {
     const row = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
@@ -16,18 +14,36 @@ router.get('/auto-logout', async (req, res) => {
       const parsed = JSON.parse(row.value);
       return res.json({
         enabled: Boolean(parsed.enabled),
-        durationValue: Number(parsed.durationValue) || 30,
+        durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
         durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
-        warningDurationValue: Number(parsed.warningDurationValue) || 30,
-        warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds'
+        warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
+        warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
+        isConfigured: Boolean(parsed.isConfigured)
       });
     }
-    res.json({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds' });
+    res.json({
+      enabled: false,
+      durationValue: 30,
+      durationUnit: 'minutes',
+      warningDurationValue: 30,
+      warningDurationUnit: 'seconds',
+      isConfigured: false
+    });
   } catch (err: any) {
     console.error('Error fetching auto-logout settings:', err);
-    res.json({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds' });
+    res.json({
+      enabled: false,
+      durationValue: 30,
+      durationUnit: 'minutes',
+      warningDurationValue: 30,
+      warningDurationUnit: 'seconds',
+      isConfigured: false
+    });
   }
 });
+
+// All following routes require active authenticated session
+router.use(authenticate);
 
 // Update Auto-Logout settings (Admin only)
 router.put('/auto-logout', requireAdmin, async (req, res) => {
@@ -51,7 +67,9 @@ router.put('/auto-logout', requireAdmin, async (req, res) => {
       durationValue: parsedValue,
       durationUnit: unit,
       warningDurationValue: parsedWarningValue,
-      warningDurationUnit: warningUnit
+      warningDurationUnit: warningUnit,
+      isConfigured: true,
+      updatedAt: Date.now()
     };
 
     await dbRun(
@@ -226,6 +244,9 @@ router.get('/backup', async (req, res) => {
     const rawPreRegs = await dbAll<any>('SELECT * FROM pre_registrations ORDER BY id ASC');
     const visitors = await getAllVisitorsWithHistory();
 
+    const autoLogoutRow = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
+    const autoLogoutSettings = autoLogoutRow && autoLogoutRow.value ? JSON.parse(autoLogoutRow.value) : null;
+
     const events = (rawEvents || []).map((e: any) => ({
       id: e.id,
       name: e.event_name,
@@ -242,7 +263,8 @@ router.get('/backup', async (req, res) => {
       timestamp: new Date().toISOString(),
       visitors,
       events,
-      preRegistrations: rawPreRegs || []
+      preRegistrations: rawPreRegs || [],
+      autoLogoutSettings
     });
   } catch (err: any) {
     console.error('Error creating backup:', err);
@@ -515,6 +537,24 @@ router.post('/restore-data', async (req, res) => {
           }
         }
       }
+    }
+
+    // 4. Optionally restore Auto-Logout settings if included in backup
+    if (req.body.autoLogoutSettings && typeof req.body.autoLogoutSettings === 'object') {
+      const s = req.body.autoLogoutSettings;
+      const newSettings = {
+        enabled: Boolean(s.enabled),
+        durationValue: Number(s.durationValue) > 0 ? Number(s.durationValue) : 30,
+        durationUnit: s.durationUnit === 'hours' ? 'hours' : 'minutes',
+        warningDurationValue: Number(s.warningDurationValue) > 0 ? Number(s.warningDurationValue) : 30,
+        warningDurationUnit: s.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
+        isConfigured: true,
+        updatedAt: Date.now()
+      };
+      await dbRun(
+        'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        ['auto_logout', JSON.stringify(newSettings)]
+      ).catch((err) => console.warn('Could not restore auto-logout settings:', err));
     }
 
     // Retrieve full merged dataset from database

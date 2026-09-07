@@ -110,7 +110,7 @@ export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
         ...DEFAULT_AUTO_LOGOUT_SETTINGS,
         enabled: envEnabled,
         automaticLogoutEnabled: envEnabled,
-        isConfigured: true
+        isConfigured: false
       };
     }
   } catch (err) {

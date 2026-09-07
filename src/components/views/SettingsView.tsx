@@ -10,9 +10,17 @@ interface SettingsViewProps {
   isDarkMode?: boolean;
   setIsDarkMode?: React.Dispatch<React.SetStateAction<boolean>>;
   userRole?: string;
+  autoLogoutSettings?: AutoLogoutSettings;
+  onUpdateAutoLogoutSettings?: (settings: AutoLogoutSettings) => Promise<void> | void;
 }
 
-export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: SettingsViewProps) {
+export function SettingsView({
+  isDarkMode = true,
+  setIsDarkMode,
+  userRole,
+  autoLogoutSettings: propAutoLogoutSettings,
+  onUpdateAutoLogoutSettings
+}: SettingsViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -20,49 +28,86 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
   const [isClearing, setIsClearing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  // Automatic Logout state initialized from persistent storage
-  const initialSettings = getStoredAutoLogoutSettings();
+  // Authoritative Automatic Logout state initialized from props or persistent storage
+  const initialSettings = propAutoLogoutSettings || getStoredAutoLogoutSettings();
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(
     initialSettings.automaticLogoutEnabled !== undefined ? initialSettings.automaticLogoutEnabled : initialSettings.enabled
   );
-  const [durationValue, setDurationValue] = useState<number>(initialSettings.durationValue);
-  const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours'>(initialSettings.durationUnit);
-  const [warningDurationValue, setWarningDurationValue] = useState<number>(initialSettings.warningDurationValue);
-  const [warningDurationUnit, setWarningDurationUnit] = useState<'seconds' | 'minutes'>(initialSettings.warningDurationUnit);
+  const [durationValue, setDurationValue] = useState<number>(initialSettings.durationValue || 30);
+  const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours'>(initialSettings.durationUnit || 'minutes');
+  const [warningDurationValue, setWarningDurationValue] = useState<number>(initialSettings.warningDurationValue || 30);
+  const [warningDurationUnit, setWarningDurationUnit] = useState<'seconds' | 'minutes'>(initialSettings.warningDurationUnit || 'seconds');
   const [isSavingAutoLogout, setIsSavingAutoLogout] = useState(false);
 
   const isAdmin = Boolean(userRole && (userRole.toLowerCase() === 'admin' || userRole.toLowerCase() === 'administrator'));
 
+  // Sync whenever parent propAutoLogoutSettings changes
   useEffect(() => {
+    if (propAutoLogoutSettings) {
+      const isEnabled = propAutoLogoutSettings.automaticLogoutEnabled !== undefined
+        ? propAutoLogoutSettings.automaticLogoutEnabled
+        : propAutoLogoutSettings.enabled;
+      setAutoLogoutEnabled(isEnabled);
+      setDurationValue(propAutoLogoutSettings.durationValue || 30);
+      setDurationUnit(propAutoLogoutSettings.durationUnit || 'minutes');
+      setWarningDurationValue(propAutoLogoutSettings.warningDurationValue || 30);
+      setWarningDurationUnit(propAutoLogoutSettings.warningDurationUnit || 'seconds');
+    }
+  }, [propAutoLogoutSettings]);
+
+  // Sync with server and listen for custom broadcast events
+  useEffect(() => {
+    const handleBroadcast = (e: any) => {
+      if (e.detail && typeof e.detail === 'object') {
+        const isEnabled = Boolean(
+          e.detail.automaticLogoutEnabled !== undefined ? e.detail.automaticLogoutEnabled : e.detail.enabled
+        );
+        setAutoLogoutEnabled(isEnabled);
+        if (e.detail.durationValue) setDurationValue(Number(e.detail.durationValue));
+        if (e.detail.durationUnit) setDurationUnit(e.detail.durationUnit);
+        if (e.detail.warningDurationValue) setWarningDurationValue(Number(e.detail.warningDurationValue));
+        if (e.detail.warningDurationUnit) setWarningDurationUnit(e.detail.warningDurationUnit);
+      }
+    };
+    window.addEventListener('auto-logout-updated', handleBroadcast);
+
     if (isAdmin) {
       API.getAutoLogoutSettings()
         .then((data) => {
           if (data && typeof data === 'object') {
-            const isEnabled = Boolean(
-              data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
-            );
-            const val = Number(data.durationValue) > 0 ? Number(data.durationValue) : 30;
-            const unit = data.durationUnit === 'hours' ? 'hours' : 'minutes';
-            const warnVal = Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30;
-            const warnUnit = data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds';
+            const currentLocal = propAutoLogoutSettings || getStoredAutoLogoutSettings();
 
-            setAutoLogoutEnabled(isEnabled);
-            setDurationValue(val);
-            setDurationUnit(unit);
-            setWarningDurationValue(warnVal);
-            setWarningDurationUnit(warnUnit);
+            // If server has configured settings, or if client is not configured, adopt server
+            if (data.isConfigured || !currentLocal.isConfigured) {
+              const isEnabled = Boolean(
+                data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
+              );
+              const val = Number(data.durationValue) > 0 ? Number(data.durationValue) : 30;
+              const unit = data.durationUnit === 'hours' ? 'hours' : 'minutes';
+              const warnVal = Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30;
+              const warnUnit = data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds';
 
-            const savedObj = {
-              enabled: isEnabled,
-              automaticLogoutEnabled: isEnabled,
-              durationValue: val,
-              durationUnit: unit,
-              warningDurationValue: warnVal,
-              warningDurationUnit: warnUnit,
-              isConfigured: true
-            };
-            localStorage.setItem('auto_logout_settings', JSON.stringify(savedObj));
-            localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
+              setAutoLogoutEnabled(isEnabled);
+              setDurationValue(val);
+              setDurationUnit(unit);
+              setWarningDurationValue(warnVal);
+              setWarningDurationUnit(warnUnit);
+
+              const savedObj: AutoLogoutSettings = {
+                enabled: isEnabled,
+                automaticLogoutEnabled: isEnabled,
+                durationValue: val,
+                durationUnit: unit,
+                warningDurationValue: warnVal,
+                warningDurationUnit: warnUnit,
+                isConfigured: true
+              };
+              localStorage.setItem('auto_logout_settings', JSON.stringify(savedObj));
+              localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
+            } else if (currentLocal.isConfigured) {
+              // Client already had configured settings but server was cold/unconfigured -> persist client's settings to server
+              API.updateAutoLogoutSettings(currentLocal).catch(() => {});
+            }
           }
         })
         .catch(() => {
@@ -75,7 +120,11 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
           setWarningDurationUnit(cached.warningDurationUnit);
         });
     }
-  }, [isAdmin]);
+
+    return () => {
+      window.removeEventListener('auto-logout-updated', handleBroadcast);
+    };
+  }, [isAdmin, propAutoLogoutSettings]);
 
   const showNotification = (msg: string) => {
     setMessage(msg);
@@ -107,15 +156,22 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
 
     try {
       setIsSavingAutoLogout(true);
-      await API.updateAutoLogoutSettings(payload);
+      // Immediately write authoritative state to local storage & parent
       localStorage.setItem('auto_logout_settings', JSON.stringify(payload));
       localStorage.setItem('automaticLogoutEnabled', String(enabledToSave));
+      if (onUpdateAutoLogoutSettings) {
+        await onUpdateAutoLogoutSettings(payload);
+      }
+      await API.updateAutoLogoutSettings(payload);
       window.dispatchEvent(new CustomEvent('auto-logout-updated', { detail: payload }));
       showNotification('Automatic logout settings saved successfully.');
     } catch (err: any) {
       console.warn('API save error, saving to local persistent cache:', err);
       localStorage.setItem('auto_logout_settings', JSON.stringify(payload));
       localStorage.setItem('automaticLogoutEnabled', String(enabledToSave));
+      if (onUpdateAutoLogoutSettings) {
+        await onUpdateAutoLogoutSettings(payload);
+      }
       window.dispatchEvent(new CustomEvent('auto-logout-updated', { detail: payload }));
       showNotification('Automatic logout settings saved.');
     } finally {

@@ -204,30 +204,37 @@ export default function App() {
 
   // Fetch and keep Auto-Logout settings up-to-date
   useEffect(() => {
+    // Load persistent auto logout settings immediately on app start!
     const syncAutoLogoutSettings = async () => {
       try {
+        const localSettings = getStoredAutoLogoutSettings();
         const data = await API.getAutoLogoutSettings();
         if (data && typeof data === 'object') {
-          const isEnabled = Boolean(
-            data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
-          );
-          const normalized: AutoLogoutSettings = {
-            enabled: isEnabled,
-            automaticLogoutEnabled: isEnabled,
-            durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : 30,
-            durationUnit: data.durationUnit === 'hours' ? 'hours' : 'minutes',
-            warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30,
-            warningDurationUnit: data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-            isConfigured: true
-          };
-          setAutoLogoutSettings(normalized);
-          localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
-          localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
+          if (data.isConfigured || !localSettings.isConfigured) {
+            const isEnabled = Boolean(
+              data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
+            );
+            const normalized: AutoLogoutSettings = {
+              enabled: isEnabled,
+              automaticLogoutEnabled: isEnabled,
+              durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : (localSettings.durationValue || 30),
+              durationUnit: data.durationUnit === 'hours' ? 'hours' : (localSettings.durationUnit || 'minutes'),
+              warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : (localSettings.warningDurationValue || 30),
+              warningDurationUnit: data.warningDurationUnit === 'minutes' ? 'minutes' : (localSettings.warningDurationUnit || 'seconds'),
+              isConfigured: true
+            };
+            setAutoLogoutSettings(normalized);
+            localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
+            localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
 
-          if (!normalized.enabled) {
-            sessionStorage.removeItem('auth_login_time');
-            setLoginTime(null);
-            setShowWarningModal(false);
+            if (!normalized.enabled) {
+              sessionStorage.removeItem('auth_login_time');
+              setLoginTime(null);
+              setShowWarningModal(false);
+            }
+          } else if (localSettings.isConfigured) {
+            // Re-seed server if server was cold/unconfigured
+            API.updateAutoLogoutSettings(localSettings).catch(() => {});
           }
         }
       } catch {
@@ -241,7 +248,6 @@ export default function App() {
       }
     };
 
-    // Load persistent auto logout settings immediately on app start!
     syncAutoLogoutSettings();
 
     const handleSettingsUpdated = (e: any) => {
@@ -283,6 +289,37 @@ export default function App() {
     window.addEventListener('auto-logout-updated', handleSettingsUpdated);
     return () => window.removeEventListener('auto-logout-updated', handleSettingsUpdated);
   }, []);
+
+  const handleUpdateAutoLogoutSettings = (newSettings: AutoLogoutSettings) => {
+    const isEnabled = Boolean(
+      newSettings.automaticLogoutEnabled !== undefined ? newSettings.automaticLogoutEnabled : newSettings.enabled
+    );
+    const normalized: AutoLogoutSettings = {
+      ...newSettings,
+      enabled: isEnabled,
+      automaticLogoutEnabled: isEnabled,
+      isConfigured: true
+    };
+    setAutoLogoutSettings(normalized);
+    localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
+    localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
+
+    if (!isEnabled) {
+      sessionStorage.removeItem('auth_login_time');
+      setLoginTime(null);
+      if (autoLogoutTimerRef.current) {
+        clearInterval(autoLogoutTimerRef.current);
+        autoLogoutTimerRef.current = null;
+      }
+      setShowWarningModal(false);
+    } else {
+      if (currentUser && !loginTime) {
+        const now = Date.now();
+        sessionStorage.setItem('auth_login_time', String(now));
+        setLoginTime(now);
+      }
+    }
+  };
 
   // Non-inactivity Automatic Logout Timer
   // The timer starts upon login and strictly measures duration from login timestamp.
@@ -399,22 +436,31 @@ export default function App() {
         if (autoLogoutRes.ok) {
           const fetchedSettings = await autoLogoutRes.json();
           if (fetchedSettings && typeof fetchedSettings === 'object') {
-            const isEnabled = Boolean(
-              fetchedSettings.automaticLogoutEnabled !== undefined
-                ? fetchedSettings.automaticLogoutEnabled
-                : fetchedSettings.enabled
-            );
-            currentAutoLogout = {
-              enabled: isEnabled,
-              automaticLogoutEnabled: isEnabled,
-              durationValue: Number(fetchedSettings.durationValue) > 0 ? Number(fetchedSettings.durationValue) : 30,
-              durationUnit: fetchedSettings.durationUnit === 'hours' ? 'hours' : 'minutes',
-              warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : 30,
-              warningDurationUnit: fetchedSettings.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-              isConfigured: true
-            };
+            if (fetchedSettings.isConfigured || !currentAutoLogout.isConfigured) {
+              const isEnabled = Boolean(
+                fetchedSettings.automaticLogoutEnabled !== undefined
+                  ? fetchedSettings.automaticLogoutEnabled
+                  : fetchedSettings.enabled
+              );
+              currentAutoLogout = {
+                enabled: isEnabled,
+                automaticLogoutEnabled: isEnabled,
+                durationValue: Number(fetchedSettings.durationValue) > 0 ? Number(fetchedSettings.durationValue) : (currentAutoLogout.durationValue || 30),
+                durationUnit: fetchedSettings.durationUnit === 'hours' ? 'hours' : (currentAutoLogout.durationUnit || 'minutes'),
+                warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : (currentAutoLogout.warningDurationValue || 30),
+                warningDurationUnit: fetchedSettings.warningDurationUnit === 'minutes' ? 'minutes' : (currentAutoLogout.warningDurationUnit || 'seconds'),
+                isConfigured: true
+              };
+            } else if (currentAutoLogout.isConfigured) {
+              // Re-seed server if server was cold/unconfigured
+              fetch('/api/settings/auto-logout', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
+                body: JSON.stringify(currentAutoLogout)
+              }).catch(() => {});
+            }
             localStorage.setItem('auto_logout_settings', JSON.stringify(currentAutoLogout));
-            localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
+            localStorage.setItem('automaticLogoutEnabled', String(currentAutoLogout.enabled));
           }
         }
       } catch (err) {
@@ -771,7 +817,15 @@ export default function App() {
           {(currentTab === 'visitors' || currentTab === 'all-visitors') && <AllVisitorsView visitors={visitors} setVisitors={setVisitors} />}
           {currentTab === 'event' && <EventView />}
           {currentTab === 'reports' && <ReportsView visitors={visitors} />}
-          {currentTab === 'settings' && <SettingsView isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} userRole={currentUser.role} />}
+          {currentTab === 'settings' && (
+            <SettingsView
+              isDarkMode={isDarkMode}
+              setIsDarkMode={setIsDarkMode}
+              userRole={currentUser.role}
+              autoLogoutSettings={autoLogoutSettings}
+              onUpdateAutoLogoutSettings={handleUpdateAutoLogoutSettings}
+            />
+          )}
         </main>
         
       </div>

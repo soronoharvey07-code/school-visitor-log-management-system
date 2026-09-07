@@ -25,9 +25,14 @@ router.get('/auto-logout', async (req, res) => {
   const envVal = getEnvAutoLogout();
 
   try {
-    const row = await dbGet<any>(
-      "SELECT value FROM system_settings WHERE key IN ('auto_logout', 'automaticLogoutEnabled', 'automatic_logout_enabled') ORDER BY key ASC LIMIT 1"
-    );
+    const row = (await dbGet<any>(
+      "SELECT value FROM system_settings WHERE key = 'auto_logout' LIMIT 1"
+    )) || (await dbGet<any>(
+      "SELECT value FROM system_settings WHERE key = 'automaticLogoutEnabled' LIMIT 1"
+    )) || (await dbGet<any>(
+      "SELECT value FROM system_settings WHERE key = 'automatic_logout_enabled' LIMIT 1"
+    ));
+
     if (row && row.value) {
       let parsed: any = null;
       try {
@@ -42,7 +47,9 @@ router.get('/auto-logout', async (req, res) => {
           ? Boolean(parsed.automaticLogoutEnabled)
           : Boolean(parsed.enabled);
 
-        const finalEnabled = envVal !== undefined ? envVal : isDbEnabled;
+        const isConfigured = parsed.isConfigured === true;
+        // If user already saved a configured setting, preserve isDbEnabled; otherwise fallback to env
+        const finalEnabled = (envVal !== undefined && !isConfigured) ? envVal : isDbEnabled;
 
         return res.json({
           enabled: finalEnabled,
@@ -51,7 +58,7 @@ router.get('/auto-logout', async (req, res) => {
           durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
           warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
           warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-          isConfigured: true
+          isConfigured: isConfigured || envVal !== undefined
         });
       }
     }

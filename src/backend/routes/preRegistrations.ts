@@ -10,6 +10,25 @@ router.post('/', async (req, res) => {
   if (!event_id || !full_name) return res.status(400).json({ error: 'Event ID and name are required' });
 
   try {
+    // Validate event exists and is ACTIVE
+    const rawEventId = String(event_id).trim();
+    const numEventId = parseInt(rawEventId, 10);
+    let eventRow: any = null;
+    if (!isNaN(numEventId)) {
+      eventRow = await dbGet('SELECT * FROM events WHERE id = ? OR id = ?', [rawEventId, numEventId]);
+    } else {
+      eventRow = await dbGet('SELECT * FROM events WHERE id = ?', [rawEventId]);
+    }
+
+    if (!eventRow) {
+      return res.status(404).json({ error: 'Event not found. Registration link is unavailable.' });
+    }
+
+    const eventStatus = (eventRow.status || '').toString().trim().toLowerCase();
+    if (eventStatus !== 'active') {
+      return res.status(403).json({ error: 'This event registration link is currently inactive or no longer accepting submissions.' });
+    }
+
     const trimmedName = full_name.trim();
     const existing = await dbGet<any>(
       'SELECT id FROM pre_registrations WHERE event_id = ? AND (LOWER(TRIM(full_name)) = LOWER(TRIM(?)) OR (contact_number IS NOT NULL AND contact_number != "" AND contact_number = ?))',

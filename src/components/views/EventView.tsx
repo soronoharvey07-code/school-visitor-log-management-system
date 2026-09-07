@@ -131,6 +131,10 @@ export function EventView() {
     setEvents(updatedEvents);
     localStorage.setItem('schoolEvents', JSON.stringify(updatedEvents));
 
+    if (selectedQrEvent && String(selectedQrEvent.id) === String(id)) {
+      setSelectedQrEvent(prev => prev ? { ...prev, status: nextStatus } : null);
+    }
+
     try {
       await API.updateEvent(id, { status: nextStatus });
     } catch (err) {
@@ -157,11 +161,6 @@ export function EventView() {
     const metaEnv = (import.meta as any).env;
     if (metaEnv && metaEnv.VITE_PUBLIC_URL) {
       origin = metaEnv.VITE_PUBLIC_URL;
-    } else if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      const publicHost = 'https://ais-dev-b4jcin66l4ag2smvijhkce-9285805548.asia-southeast1.run.app';
-      if (publicHost) {
-        origin = publicHost;
-      }
     }
     origin = origin.replace(/\/+$/, '');
     return `${origin}/register/${eventId}`;
@@ -392,9 +391,19 @@ export function EventView() {
                 <h4 className="text-lg font-bold text-main-fg mb-1">
                   {(selectedQrEvent as any).event_name || selectedQrEvent.name}
                 </h4>
-                <p className="text-xs font-medium text-muted-fg">
-                  Scan to access active visitor registration form
-                </p>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  {selectedQrEvent.status === 'inactive' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                      Inactive Link ("Link is Unavailable")
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Active Link (Registration Open)
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* QR Code Canvas Frame */}

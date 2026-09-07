@@ -82,3 +82,16 @@ export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
   return { ...DEFAULT_AUTO_LOGOUT_SETTINGS };
 }
 
+export interface SchoolEvent {
+  id: string;
+  event_name?: string;
+  name?: string;
+  date: string;
+  location: string;
+  description: string;
+  registration_link?: string;
+  link?: string;
+  status: 'active' | 'inactive';
+}
+
+

@@ -1,21 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, MapPin, Camera, Upload, RefreshCw, Check, Download, Share2, Copy, CheckCheck, Sparkles, ChevronDown } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Visitor } from '../../types';
+import { Visitor, SchoolEvent } from '../../types';
 import { getNextIdNumber } from '../../utils/idSequence';
 import { API } from '../../api';
 import { consolidateVisitors, registerOrUpdateVisitor } from '../../utils/visitorManager';
 import { formatManilaDate } from '../../utils/dateUtils';
-
-interface SchoolEvent {
-  id: string;
-  event_name: string;
-  date: string;
-  location: string;
-  description: string;
-  registration_link: string;
-  status?: string;
-}
+import { validateEventStatus } from '../../utils/eventValidation';
 
 interface EventRegistrationProps {
   eventId: string;
@@ -23,6 +14,7 @@ interface EventRegistrationProps {
 
 export function EventRegistration({ eventId }: EventRegistrationProps) {
   const [event, setEvent] = useState<SchoolEvent | null>(null);
+  const [isEventActive, setIsEventActive] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,92 +42,31 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadEvent = async () => {
       setLoading(true);
-      let foundEvent: SchoolEvent | null = null;
+      // Perform authoritative shared event validation (works identically for QR scans and direct links)
+      const validation = await validateEventStatus(eventId);
+      if (!isMounted) return;
 
-      // 1. Fetch from server API
-      try {
-        const found = await API.getPublicEvent(eventId);
-        if (found) {
-          foundEvent = {
-            id: String(found.id),
-            event_name: found.event_name || (found as any).name || 'School Event',
-            date: found.date || '',
-            location: found.location || '',
-            description: found.description || '',
-            registration_link: found.registration_link || `/register/${eventId}`,
-            status: found.status === 'inactive' ? 'inactive' : 'active'
-          };
-        }
-      } catch (err) {
-        console.warn('Could not fetch event from API, checking local storage fallback...', err);
-      }
-
-      // 2. Check current window localStorage
-      if (!foundEvent) {
-        try {
-          const saved = localStorage.getItem('schoolEvents');
-          if (saved) {
-            const list = JSON.parse(saved);
-            const foundLocal = list.find((e: any) => String(e.id) === String(eventId));
-            if (foundLocal) {
-              foundEvent = {
-                id: String(foundLocal.id),
-                event_name: foundLocal.event_name || foundLocal.name || 'School Event',
-                date: foundLocal.date || '',
-                location: foundLocal.location || '',
-                description: foundLocal.description || '',
-                registration_link: foundLocal.registration_link || foundLocal.link || `/register/${eventId}`,
-                status: foundLocal.status === 'inactive' ? 'inactive' : 'active'
-              };
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 3. Check opener window localStorage
-      if (!foundEvent) {
-        try {
-          if (window.opener && window.opener.localStorage) {
-            const saved = window.opener.localStorage.getItem('schoolEvents');
-            if (saved) {
-              const list = JSON.parse(saved);
-              const foundLocal = list.find((e: any) => String(e.id) === String(eventId));
-              if (foundLocal) {
-                foundEvent = {
-                  id: String(foundLocal.id),
-                  event_name: foundLocal.event_name || foundLocal.name || 'School Event',
-                  date: foundLocal.date || '',
-                  location: foundLocal.location || '',
-                  description: foundLocal.description || '',
-                  registration_link: foundLocal.registration_link || foundLocal.link || `/register/${eventId}`,
-                  status: foundLocal.status === 'inactive' ? 'inactive' : 'active'
-                };
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      if (foundEvent) {
-        setEvent(foundEvent);
+      if (validation.isValid && validation.event && validation.isActive) {
+        setEvent(validation.event);
+        setIsEventActive(true);
+      } else if (validation.event) {
+        setEvent(validation.event);
+        setIsEventActive(false);
       } else {
-        // Fallback active event object for valid system event IDs
-        setEvent({
-          id: String(eventId),
-          event_name: 'School Event',
-          date: new Date().toISOString().split('T')[0],
-          location: 'School Campus',
-          description: 'Event Online Registration',
-          registration_link: `/register/${eventId}`,
-          status: 'active'
-        });
+        setEvent(null);
+        setIsEventActive(false);
       }
       setLoading(false);
     };
 
     loadEvent();
+    return () => {
+      isMounted = false;
+    };
   }, [eventId]);
 
   // Handle camera video stream binding with iOS Safari compatibility
@@ -346,6 +277,15 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
     setSubmitting(true);
 
     try {
+      // Re-validate event status immediately before sending registration payload
+      const currentValidation = await validateEventStatus(eventId);
+      if (!currentValidation.isActive) {
+        setIsEventActive(false);
+        setError('This event registration link is currently inactive or no longer accepting submissions.');
+        setSubmitting(false);
+        return;
+      }
+
       const res = await fetch('/api/public/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -517,7 +457,7 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
     );
   }
 
-  if (!event || event.status === 'inactive') {
+  if (!event || !isEventActive || event.status === 'inactive') {
     return (
       <div className="min-h-screen bg-app-bg flex items-center justify-center flex-col p-6 text-center font-sans">
         <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center justify-center mb-4 shadow-sm">

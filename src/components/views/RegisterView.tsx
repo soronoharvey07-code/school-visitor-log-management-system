@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserPlus, Camera, Upload, Search, X, Check, RefreshCw, CheckCircle2, QrCode, AlertCircle } from 'lucide-react';
+import { UserPlus, Camera, Upload, Search, X, Check, RefreshCw, CheckCircle2, QrCode, AlertCircle, Calendar } from 'lucide-react';
 import { QRScannerModal } from '../QRScannerModal';
 import { Visitor } from '../../types';
 import { VisitorAvatar } from '../VisitorAvatar';
@@ -7,6 +7,7 @@ import { getNextIdNumber } from '../../utils/idSequence';
 import { API } from '../../api';
 import { consolidateVisitors, registerOrUpdateVisitor } from '../../utils/visitorManager';
 import { parseToMs, parseOptionalToMs } from '../../utils/dateUtils';
+import { validateEventStatus, extractEventId } from '../../utils/eventValidation';
 
 interface RegisterViewProps {
   visitors?: Visitor[];
@@ -33,6 +34,8 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
   const [successMessage, setSuccessMessage] = useState(false);
   const [error, setError] = useState('');
   const [showNotFoundModal, setShowNotFoundModal] = useState(false);
+  const [showInactiveEventModal, setShowInactiveEventModal] = useState(false);
+  const [inactiveEventMsg, setInactiveEventMsg] = useState('');
   
   // Search state for returning visitors
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,10 +79,33 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
     setIsScannerOpen(false);
 
     try {
+      const trimmed = scannedCode.trim();
+
+      // Check if scanned code represents an Event Registration link or QR code
+      if (
+        trimmed.includes('/register/') ||
+        (trimmed.startsWith('http') && (trimmed.includes('event=') || trimmed.includes('/register/'))) ||
+        trimmed.startsWith('EVENT-')
+      ) {
+        // Enforce shared event-status validation
+        const eventVal = await validateEventStatus(trimmed);
+        if (!eventVal.isActive) {
+          // Event is inactive or invalid: Show "Link is Unavailable" and do not open form
+          setInactiveEventMsg(
+            eventVal.errorMessage || 'This event registration link is currently inactive or no longer accepting submissions.'
+          );
+          setShowInactiveEventModal(true);
+          return;
+        } else {
+          // Event is active: navigate to registration
+          const evId = eventVal.event?.id || extractEventId(trimmed);
+          window.location.href = `/register/${evId}`;
+          return;
+        }
+      }
+
       let candidateId: string | undefined;
       let candidateVisitorNumber: string | undefined;
-
-      const trimmed = scannedCode.trim();
 
       // Try JSON parsing
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
@@ -512,6 +538,46 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
               <button 
                 type="button"
                 onClick={() => setShowNotFoundModal(false)}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inactive Event QR Code Modal */}
+      {showInactiveEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-card-bg border border-app-border rounded-xl w-full max-w-[420px] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+              <div className="flex items-center gap-2 text-red-500">
+                <Calendar size={18} />
+                <h3 className="text-base font-semibold text-main-fg">Link is Unavailable</h3>
+              </div>
+              <button 
+                onClick={() => setShowInactiveEventModal(false)} 
+                className="text-icon-fg hover:text-heading-fg transition-colors p-1 rounded-lg hover:bg-hover-bg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl flex items-center justify-center mb-3">
+                <Calendar size={24} />
+              </div>
+              <h4 className="text-sm font-semibold text-main-fg mb-1">Link is unavailable</h4>
+              <p className="text-sm text-label-fg leading-relaxed">
+                {inactiveEventMsg || 'This event registration link is currently inactive or no longer accepting submissions.'}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-th-bg border-t border-app-border flex justify-end items-center">
+              <button 
+                type="button"
+                onClick={() => setShowInactiveEventModal(false)}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-sm"
               >
                 OK

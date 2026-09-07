@@ -63,7 +63,7 @@ app.use('/api', async (req, res, next) => {
 // Public API Routes
 app.get('/api/public/events/:id', async (req, res) => {
   try {
-    const rawId = req.params.id;
+    const rawId = String(req.params.id || '').replace(/\/+$/, '').trim();
     const numId = parseInt(rawId, 10);
     let event: any = null;
     if (!isNaN(numId)) {
@@ -76,10 +76,9 @@ app.get('/api/public/events/:id', async (req, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Default status to 'active' if missing
-    if (!event.status) {
-      event.status = 'active';
-    }
+    // Normalize status: strictly 'active' only if case-insensitive string is 'active'
+    const statusClean = String(event.status || '').trim().toLowerCase();
+    event.status = statusClean === 'active' ? 'active' : 'inactive';
 
     res.json(event);
   } catch (err) {
@@ -93,6 +92,29 @@ app.post('/api/public/register', async (req, res) => {
       event_id, visitor_type, visit_info, id_type, id_number, full_name,
       contact_number, address, purpose, photoDataUrl, registration_type, status
     } = req.body;
+
+    if (!event_id) {
+      return res.status(400).json({ error: 'Event ID is required for event registration.' });
+    }
+
+    // Validate that the event exists and is ACTIVE
+    const rawEventId = String(event_id).trim();
+    const numEventId = parseInt(rawEventId, 10);
+    let eventRow: any = null;
+    if (!isNaN(numEventId)) {
+      eventRow = await dbGet('SELECT * FROM events WHERE id = ? OR id = ?', [rawEventId, numEventId]);
+    } else {
+      eventRow = await dbGet('SELECT * FROM events WHERE id = ?', [rawEventId]);
+    }
+
+    if (!eventRow) {
+      return res.status(404).json({ error: 'Event not found. Registration link is unavailable.' });
+    }
+
+    const eventStatus = (eventRow.status || '').toString().trim().toLowerCase();
+    if (eventStatus !== 'active') {
+      return res.status(403).json({ error: 'This event registration link is currently inactive or no longer accepting submissions.' });
+    }
 
     if (!full_name || !full_name.trim()) {
       return res.status(400).json({ error: 'Full name is required' });

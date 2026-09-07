@@ -115,6 +115,13 @@ export default function App() {
     eventIdParam = window.location.pathname.split('/register/')[1];
   }
 
+  if (eventIdParam) {
+    eventIdParam = eventIdParam.split('?')[0].split('#')[0].replace(/\/+$/, '').trim();
+    if (!eventIdParam) {
+      eventIdParam = null;
+    }
+  }
+
   const [visitors, setVisitors] = useState<any[]>(() => {
     const saved = localStorage.getItem('school-visitor-log');
     if (saved) {

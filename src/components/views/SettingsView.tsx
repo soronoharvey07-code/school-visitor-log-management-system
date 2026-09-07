@@ -36,23 +36,25 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
       API.getAutoLogoutSettings()
         .then((data) => {
           if (data && typeof data === 'object') {
-            const clientStored = getStoredAutoLogoutSettings();
-            // Never let an unconfigured server default overwrite user-configured client settings
-            if (!data.isConfigured && clientStored.isConfigured) {
-              return;
-            }
-            setAutoLogoutEnabled(Boolean(data.enabled));
-            setDurationValue(Number(data.durationValue) > 0 ? Number(data.durationValue) : 30);
-            setDurationUnit(data.durationUnit === 'hours' ? 'hours' : 'minutes');
-            setWarningDurationValue(Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30);
-            setWarningDurationUnit(data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds');
+            const isEnabled = Boolean(data.enabled);
+            const val = Number(data.durationValue) > 0 ? Number(data.durationValue) : 30;
+            const unit = data.durationUnit === 'hours' ? 'hours' : 'minutes';
+            const warnVal = Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30;
+            const warnUnit = data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds';
+
+            setAutoLogoutEnabled(isEnabled);
+            setDurationValue(val);
+            setDurationUnit(unit);
+            setWarningDurationValue(warnVal);
+            setWarningDurationUnit(warnUnit);
+
             localStorage.setItem('auto_logout_settings', JSON.stringify({
-              enabled: Boolean(data.enabled),
-              durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : 30,
-              durationUnit: data.durationUnit === 'hours' ? 'hours' : 'minutes',
-              warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30,
-              warningDurationUnit: data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-              isConfigured: Boolean(data.isConfigured)
+              enabled: isEnabled,
+              durationValue: val,
+              durationUnit: unit,
+              warningDurationValue: warnVal,
+              warningDurationUnit: warnUnit,
+              isConfigured: true
             }));
           }
         })

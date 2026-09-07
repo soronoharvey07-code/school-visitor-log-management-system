@@ -27,7 +27,7 @@ router.get('/auto-logout', async (req, res) => {
       durationUnit: 'minutes',
       warningDurationValue: 30,
       warningDurationUnit: 'seconds',
-      isConfigured: false
+      isConfigured: true
     });
   } catch (err: any) {
     console.error('Error fetching auto-logout settings:', err);
@@ -37,7 +37,7 @@ router.get('/auto-logout', async (req, res) => {
       durationUnit: 'minutes',
       warningDurationValue: 30,
       warningDurationUnit: 'seconds',
-      isConfigured: false
+      isConfigured: true
     });
   }
 });

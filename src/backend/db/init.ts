@@ -252,7 +252,7 @@ export async function initializeDatabase(): Promise<void> {
       if (!autoLogoutConfig) {
         await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [
           'auto_logout',
-          JSON.stringify({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds' })
+          JSON.stringify({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds', isConfigured: true })
         ]).catch(() => {});
       }
 

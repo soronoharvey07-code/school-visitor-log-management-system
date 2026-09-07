@@ -6,42 +6,21 @@
   "functions": {
     "api/index.ts": {
       "memory": 1024,
-      "maxDuration": 15,
-      "includeFiles": "database.sqlite"
+      "maxDuration": 15
     }
   },
-  "headers": [
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-        }
-      ]
-    }
-  ],
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
     {
       "source": "/api",
       "destination": "/api"
     },
     {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
       "source": "/uploads/(.*)",
-      "destination": "/api/uploads/$1"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/|uploads/|api$|uploads$).*)",

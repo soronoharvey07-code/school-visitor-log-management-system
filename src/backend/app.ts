@@ -48,7 +48,6 @@ try {
   // Ignored in environments where mkdir fails
 }
 app.use('/uploads', express.static(uploadsPath));
-app.use('/api/uploads', express.static(uploadsPath));
 
 // Ensure database tables and initial defaults are loaded before handling any API requests
 app.use('/api', async (req, res, next) => {

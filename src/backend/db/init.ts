@@ -96,236 +96,158 @@ export function waitForDbReady(): Promise<void> {
   return dbInitPromise;
 }
 
-interface ColumnDef {
-  name: string;
-  type: string;
-}
-
-interface TableMigrationDef {
-  tableName: string;
-  createSql: string;
-  columns: ColumnDef[];
-}
-
-const TABLE_SCHEMAS: TableMigrationDef[] = [
-  {
-    tableName: 'users',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'guard',
-        active BOOLEAN NOT NULL DEFAULT 1,
-        last_login DATETIME,
-        last_logout DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    columns: [
-      { name: 'username', type: 'TEXT' },
-      { name: 'password_hash', type: 'TEXT' },
-      { name: 'role', type: "TEXT DEFAULT 'guard'" },
-      { name: 'active', type: 'BOOLEAN DEFAULT 1' },
-      { name: 'last_login', type: 'DATETIME' },
-      { name: 'last_logout', type: 'DATETIME' },
-      { name: 'created_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-    ]
-  },
-  {
-    tableName: 'visitors',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS visitors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        visitor_number TEXT UNIQUE NOT NULL,
-        visitor_type TEXT,
-        visit_info TEXT,
-        id_type TEXT,
-        id_number TEXT,
-        full_name TEXT NOT NULL,
-        contact_number TEXT,
-        address TEXT,
-        purpose TEXT,
-        photo TEXT,
-        status TEXT DEFAULT 'Inside',
-        registration_type TEXT DEFAULT 'Walk-in',
-        time_in DATETIME DEFAULT CURRENT_TIMESTAMP,
-        time_out DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    columns: [
-      { name: 'visitor_number', type: 'TEXT' },
-      { name: 'visitor_type', type: 'TEXT' },
-      { name: 'visit_info', type: 'TEXT' },
-      { name: 'id_type', type: 'TEXT' },
-      { name: 'id_number', type: 'TEXT' },
-      { name: 'full_name', type: 'TEXT' },
-      { name: 'contact_number', type: 'TEXT' },
-      { name: 'address', type: 'TEXT' },
-      { name: 'purpose', type: 'TEXT' },
-      { name: 'photo', type: 'TEXT' },
-      { name: 'status', type: "TEXT DEFAULT 'Inside'" },
-      { name: 'registration_type', type: "TEXT DEFAULT 'Walk-in'" },
-      { name: 'time_in', type: 'DATETIME' },
-      { name: 'time_out', type: 'DATETIME' },
-      { name: 'created_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-    ]
-  },
-  {
-    tableName: 'visits',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        visitor_id INTEGER NOT NULL,
-        visitor_number TEXT NOT NULL,
-        visitor_type TEXT,
-        visit_info TEXT,
-        purpose TEXT,
-        status TEXT DEFAULT 'signed-in',
-        registration_type TEXT DEFAULT 'Walk-in',
-        time_in DATETIME DEFAULT CURRENT_TIMESTAMP,
-        time_out DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (visitor_id) REFERENCES visitors(id)
-      )
-    `,
-    columns: [
-      { name: 'visitor_id', type: 'INTEGER' },
-      { name: 'visitor_number', type: 'TEXT' },
-      { name: 'visitor_type', type: 'TEXT' },
-      { name: 'visit_info', type: 'TEXT' },
-      { name: 'purpose', type: 'TEXT' },
-      { name: 'status', type: "TEXT DEFAULT 'signed-in'" },
-      { name: 'registration_type', type: "TEXT DEFAULT 'Walk-in'" },
-      { name: 'time_in', type: 'DATETIME' },
-      { name: 'time_out', type: 'DATETIME' },
-      { name: 'created_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-    ]
-  },
-  {
-    tableName: 'events',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_name TEXT NOT NULL,
-        description TEXT,
-        location TEXT,
-        date TEXT NOT NULL,
-        registration_link TEXT,
-        status TEXT DEFAULT 'active',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    columns: [
-      { name: 'event_name', type: 'TEXT' },
-      { name: 'description', type: 'TEXT' },
-      { name: 'location', type: 'TEXT' },
-      { name: 'date', type: 'TEXT' },
-      { name: 'registration_link', type: 'TEXT' },
-      { name: 'status', type: "TEXT DEFAULT 'active'" },
-      { name: 'created_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-    ]
-  },
-  {
-    tableName: 'pre_registrations',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS pre_registrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_id INTEGER NOT NULL,
-        full_name TEXT NOT NULL,
-        contact_number TEXT,
-        email TEXT,
-        address TEXT,
-        visitor_type TEXT,
-        visit_info TEXT,
-        id_type TEXT,
-        id_number TEXT,
-        purpose TEXT,
-        photo TEXT,
-        registration_type TEXT DEFAULT 'Online Registration',
-        status TEXT DEFAULT 'pre-registered',
-        qr_code TEXT,
-        visitor_number TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (event_id) REFERENCES events(id)
-      )
-    `,
-    columns: [
-      { name: 'event_id', type: 'INTEGER' },
-      { name: 'full_name', type: 'TEXT' },
-      { name: 'contact_number', type: 'TEXT' },
-      { name: 'email', type: 'TEXT' },
-      { name: 'address', type: 'TEXT' },
-      { name: 'visitor_type', type: 'TEXT' },
-      { name: 'visit_info', type: 'TEXT' },
-      { name: 'id_type', type: 'TEXT' },
-      { name: 'id_number', type: 'TEXT' },
-      { name: 'purpose', type: 'TEXT' },
-      { name: 'photo', type: 'TEXT' },
-      { name: 'registration_type', type: "TEXT DEFAULT 'Online Registration'" },
-      { name: 'status', type: "TEXT DEFAULT 'pre-registered'" },
-      { name: 'qr_code', type: 'TEXT' },
-      { name: 'visitor_number', type: 'TEXT' },
-      { name: 'created_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-    ]
-  },
-  {
-    tableName: 'system_settings',
-    createSql: `
-      CREATE TABLE IF NOT EXISTS system_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    `,
-    columns: [
-      { name: 'key', type: 'TEXT PRIMARY KEY' },
-      { name: 'value', type: 'TEXT NOT NULL' }
-    ]
-  }
-];
-
-async function syncTableSchema(tableDef: TableMigrationDef): Promise<void> {
-  // Ensure table exists
-  await dbRun(tableDef.createSql);
-
-  // Inspect existing columns dynamically
-  const colInfo = await dbAll<any>(`PRAGMA table_info(${tableDef.tableName})`).catch(() => []);
-  const existingCols = new Set(
-    Array.isArray(colInfo) ? colInfo.map((c: any) => String(c.name).toLowerCase().trim()) : []
-  );
-
-  for (const col of tableDef.columns) {
-    if (!existingCols.has(col.name.toLowerCase().trim())) {
-      console.log(`[Database Migration] Adding missing column "${col.name}" (${col.type}) to table "${tableDef.tableName}"...`);
-      try {
-        await dbRun(`ALTER TABLE ${tableDef.tableName} ADD COLUMN ${col.name} ${col.type}`);
-        existingCols.add(col.name.toLowerCase().trim());
-        console.log(`[Database Migration] Successfully added column "${col.name}" to table "${tableDef.tableName}".`);
-      } catch (alterErr: any) {
-        // If column already exists (e.g. race condition), safe to ignore
-        if (alterErr && alterErr.message && alterErr.message.includes('duplicate column name')) {
-          existingCols.add(col.name.toLowerCase().trim());
-        } else {
-          console.warn(`[Database Migration Warning] Error adding column "${col.name}" to "${tableDef.tableName}":`, alterErr);
-        }
-      }
-    }
-  }
-}
-
 export async function initializeDatabase(): Promise<void> {
   if (isDbReady) return;
   if (dbInitPromise) return dbInitPromise;
 
   dbInitPromise = (async () => {
     try {
-      // 1. Sync schemas for all core tables
-      for (const tableDef of TABLE_SCHEMAS) {
-        await syncTableSchema(tableDef);
-      }
+      // 1. Users table
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'guard',
+          active BOOLEAN NOT NULL DEFAULT 1,
+          last_login DATETIME,
+          last_logout DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-      // 2. Guarantee system_settings contains initial default configuration for Auto-Logout
+      // Ensure optional columns exist on users
+      await dbRun('ALTER TABLE users ADD COLUMN last_login DATETIME').catch(() => {});
+      await dbRun('ALTER TABLE users ADD COLUMN last_logout DATETIME').catch(() => {});
+
+      // 2. Visitors table
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS visitors (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          visitor_number TEXT UNIQUE NOT NULL,
+          visitor_type TEXT,
+          visit_info TEXT,
+          id_type TEXT,
+          id_number TEXT,
+          full_name TEXT NOT NULL,
+          contact_number TEXT,
+          address TEXT,
+          purpose TEXT,
+          photo TEXT,
+          status TEXT DEFAULT 'Inside',
+          registration_type TEXT DEFAULT 'Walk-in',
+          time_in DATETIME DEFAULT CURRENT_TIMESTAMP,
+          time_out DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Safe schema migrations for visitors table
+      await dbRun('ALTER TABLE visitors ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN id_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN id_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN contact_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN address TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN purpose TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN photo TEXT').catch(() => {});
+      await dbRun("ALTER TABLE visitors ADD COLUMN status TEXT DEFAULT 'Inside'").catch(() => {});
+      await dbRun("ALTER TABLE visitors ADD COLUMN registration_type TEXT DEFAULT 'Walk-in'").catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN time_in DATETIME').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN time_out DATETIME').catch(() => {});
+
+      // 3. Visits history table
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS visits (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          visitor_id INTEGER NOT NULL,
+          visitor_number TEXT NOT NULL,
+          visitor_type TEXT,
+          visit_info TEXT,
+          purpose TEXT,
+          status TEXT DEFAULT 'signed-in',
+          registration_type TEXT DEFAULT 'Walk-in',
+          time_in DATETIME DEFAULT CURRENT_TIMESTAMP,
+          time_out DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (visitor_id) REFERENCES visitors(id)
+        )
+      `);
+
+      // Safe schema migrations for visits table
+      await dbRun('ALTER TABLE visits ADD COLUMN visitor_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN purpose TEXT').catch(() => {});
+      await dbRun("ALTER TABLE visits ADD COLUMN status TEXT DEFAULT 'signed-in'").catch(() => {});
+      await dbRun("ALTER TABLE visits ADD COLUMN registration_type TEXT DEFAULT 'Walk-in'").catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN time_in DATETIME').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN time_out DATETIME').catch(() => {});
+
+      // 4. Events table
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_name TEXT NOT NULL,
+          description TEXT,
+          location TEXT,
+          date TEXT NOT NULL,
+          registration_link TEXT,
+          status TEXT DEFAULT 'active',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await dbRun(`ALTER TABLE events ADD COLUMN status TEXT DEFAULT 'active'`).catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN description TEXT').catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN location TEXT').catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN registration_link TEXT').catch(() => {});
+
+      // 5. Pre-registrations table
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS pre_registrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id INTEGER NOT NULL,
+          full_name TEXT NOT NULL,
+          contact_number TEXT,
+          email TEXT,
+          address TEXT,
+          visitor_type TEXT,
+          visit_info TEXT,
+          id_type TEXT,
+          id_number TEXT,
+          purpose TEXT,
+          photo TEXT,
+          registration_type TEXT DEFAULT 'Online Registration',
+          status TEXT DEFAULT 'pre-registered',
+          qr_code TEXT,
+          visitor_number TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (event_id) REFERENCES events(id)
+        )
+      `);
+
+      // Safe schema migrations for pre_registrations table (ensures existing DBs acquire all missing columns)
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN id_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN id_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN photo TEXT').catch(() => {});
+      await dbRun("ALTER TABLE pre_registrations ADD COLUMN registration_type TEXT DEFAULT 'Online Registration'").catch(() => {});
+      await dbRun("ALTER TABLE pre_registrations ADD COLUMN status TEXT DEFAULT 'pre-registered'").catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN qr_code TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visitor_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN email TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN address TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN purpose TEXT').catch(() => {});
+
+      // 6. System settings table (for persistence of Auto-Logout and other system configs)
+      await dbRun(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      `);
+
       const autoLogoutConfig = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
       if (!autoLogoutConfig) {
         await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [
@@ -334,7 +256,7 @@ export async function initializeDatabase(): Promise<void> {
         ]).catch(() => {});
       }
 
-      // 3. Guarantee default Admin and Guard accounts exist and are ready
+      // 7. Guarantee default Admin and Guard accounts exist and are ready
       const adminUser = await dbGet<any>(
         "SELECT * FROM users WHERE LOWER(username) IN ('admin', 'admin2026', 'administrator') OR LOWER(role) IN ('admin', 'administrator') LIMIT 1"
       );
@@ -359,7 +281,7 @@ export async function initializeDatabase(): Promise<void> {
         ]).catch(() => {});
       }
 
-      // 4. Initial default event if none exist
+      // 8. Initial default event if none exist
       const eventCount = await dbGet<{ count: number }>('SELECT COUNT(*) as count FROM events');
       if (!eventCount || eventCount.count === 0) {
         const result = await dbRun(
@@ -382,7 +304,6 @@ export async function initializeDatabase(): Promise<void> {
       isDbReady = true;
       console.log('Database and Authentication subsystems are fully initialized and ready.');
     } catch (err: any) {
-      dbInitPromise = null;
       if (err && (err.message?.includes('SQLITE_CORRUPT') || (err as any).code === 'SQLITE_CORRUPT')) {
         console.error('Database corrupted during init. Recreating...');
         try {
@@ -390,6 +311,7 @@ export async function initializeDatabase(): Promise<void> {
           if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
           db = new sqlite3.Database(dbPath);
           isDbReady = false;
+          dbInitPromise = null;
           return initializeDatabase();
         } catch (e) {
           console.error('Error resetting corrupt database:', e);

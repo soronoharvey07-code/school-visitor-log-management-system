@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Public route for pre-registration
 router.post('/', async (req, res) => {
-  const { event_id, full_name, contact_number, email, address, visitor_type, purpose } = req.body;
+  const { event_id, full_name, contact_number, email, address, visitor_type, purpose, visit_info, id_type, id_number } = req.body;
   if (!event_id || !full_name) return res.status(400).json({ error: 'Event ID and name are required' });
 
   try {
@@ -18,15 +18,15 @@ router.post('/', async (req, res) => {
 
     if (existing) {
       await dbRun(
-        'UPDATE pre_registrations SET contact_number = ?, email = ?, address = ?, visitor_type = ?, purpose = ? WHERE id = ?',
-        [contact_number || '', email || '', address || '', visitor_type || 'Guest', purpose || 'Event Attendance', existing.id]
+        'UPDATE pre_registrations SET contact_number = ?, email = ?, address = ?, visitor_type = ?, purpose = ?, visit_info = COALESCE(?, visit_info) WHERE id = ?',
+        [contact_number || '', email || '', address || '', visitor_type || 'Guest', purpose || 'Event Attendance', visit_info || null, existing.id]
       );
       return res.status(200).json({ id: existing.id, message: 'Pre-registration updated successfully' });
     }
 
     const result = await dbRun(
-      'INSERT INTO pre_registrations (event_id, full_name, contact_number, email, address, visitor_type, purpose) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [event_id, trimmedName, contact_number || '', email || '', address || '', visitor_type || 'Guest', purpose || 'Event Attendance']
+      'INSERT INTO pre_registrations (event_id, full_name, contact_number, email, address, visitor_type, purpose, visit_info, id_type, id_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [event_id, trimmedName, contact_number || '', email || '', address || '', visitor_type || 'Guest', purpose || 'Event Attendance', visit_info || '', id_type || 'School ID', id_number || '']
     );
     res.status(201).json({ id: result.lastID, message: 'Pre-registration successful' });
   } catch (err) {

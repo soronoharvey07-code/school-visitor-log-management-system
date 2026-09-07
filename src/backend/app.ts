@@ -251,14 +251,51 @@ app.post('/api/public/register', async (req, res) => {
               contact_number = ?,
               address = ?,
               visitor_type = ?,
-              purpose = ?
+              purpose = ?,
+              visit_info = ?,
+              id_type = ?,
+              id_number = ?,
+              photo = ?,
+              registration_type = ?,
+              status = ?,
+              visitor_number = ?
             WHERE id = ?
-          `, [trimmedContact, address || '', eventVisitorType, eventPurpose, existingPreReg.id]);
+          `, [
+            trimmedContact,
+            address || '',
+            eventVisitorType,
+            eventPurpose,
+            eventVisitInfo,
+            trimmedIdType || 'School ID',
+            trimmedIdNumber || visitor_number,
+            finalPhoto,
+            registration_type || 'Online Registration',
+            status || 'pre-registered',
+            visitor_number,
+            existingPreReg.id
+          ]);
         } else {
           await dbRun(`
-            INSERT INTO pre_registrations (event_id, full_name, contact_number, address, visitor_type, purpose)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `, [event_id, trimmedName, trimmedContact, address || '', eventVisitorType, eventPurpose]);
+            INSERT INTO pre_registrations (
+              event_id, full_name, contact_number, address, visitor_type,
+              purpose, visit_info, id_type, id_number, photo,
+              registration_type, status, visitor_number
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            event_id,
+            trimmedName,
+            trimmedContact,
+            address || '',
+            eventVisitorType,
+            eventPurpose,
+            eventVisitInfo,
+            trimmedIdType || 'School ID',
+            trimmedIdNumber || visitor_number,
+            finalPhoto,
+            registration_type || 'Online Registration',
+            status || 'pre-registered',
+            visitor_number
+          ]);
         }
       } catch (prErr) {
         console.warn('Pre-registration record processing warning:', prErr);

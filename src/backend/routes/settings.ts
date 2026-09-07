@@ -368,6 +368,34 @@ router.post('/restore-data', async (req, res) => {
 
     // 2. Merge Pre-Registrations
     if (Array.isArray(preRegistrations)) {
+      // Introspect pre_registrations table columns dynamically to guarantee error-free insertion
+      const colInfo = await dbAll<any>('PRAGMA table_info(pre_registrations)').catch(() => []);
+      const colSet = new Set(Array.isArray(colInfo) ? colInfo.map(c => c.name) : []);
+
+      // Verify and guarantee all required columns exist in pre_registrations
+      const requiredPrCols = [
+        { name: 'visit_info', type: 'TEXT' },
+        { name: 'id_type', type: 'TEXT' },
+        { name: 'id_number', type: 'TEXT' },
+        { name: 'contact_number', type: 'TEXT' },
+        { name: 'email', type: 'TEXT' },
+        { name: 'address', type: 'TEXT' },
+        { name: 'visitor_type', type: 'TEXT' },
+        { name: 'purpose', type: 'TEXT' },
+        { name: 'photo', type: 'TEXT' },
+        { name: 'registration_type', type: "TEXT DEFAULT 'Online Registration'" },
+        { name: 'status', type: "TEXT DEFAULT 'pre-registered'" },
+        { name: 'qr_code', type: 'TEXT' },
+        { name: 'visitor_number', type: 'TEXT' }
+      ];
+
+      for (const col of requiredPrCols) {
+        if (!colSet.has(col.name)) {
+          await dbRun(`ALTER TABLE pre_registrations ADD COLUMN ${col.name} ${col.type}`).catch(() => {});
+          colSet.add(col.name);
+        }
+      }
+
       for (const pr of preRegistrations) {
         const fullName = (pr.full_name || pr.name || '').trim();
         const eventId = pr.event_id || pr.eventId;
@@ -378,20 +406,92 @@ router.post('/restore-data', async (req, res) => {
           [eventId, fullName]
         );
 
+        const vType = pr.visitor_type || pr.visitorType || 'Guest';
+        const vInfo = pr.visit_info || pr.visiting || '';
+        const idType = pr.id_type || pr.idType || 'School ID';
+        const idNum = pr.id_number || pr.idNumber || '';
+        const contact = pr.contact_number || pr.contactNumber || '';
+        const email = pr.email || '';
+        const address = pr.address || '';
+        const purpose = pr.purpose || 'Event Attendance';
+        const photo = pr.photo || pr.photo_url || pr.photoDataUrl || null;
+        const regType = pr.registration_type || pr.registrationType || 'Online Registration';
+        const status = pr.status || 'pre-registered';
+        const qrCode = pr.qr_code || pr.qrCode || '';
+        const visNum = pr.visitor_number || pr.visitorNumber || '';
+
         if (!existingPR) {
-          await dbRun(`
-            INSERT INTO pre_registrations (
-              event_id, full_name, visitor_type, visit_info, id_type, id_number,
-              contact_number, address, purpose, photo, registration_type, status,
-              qr_code, visitor_number
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            eventId, fullName, pr.visitor_type || 'Guest', pr.visit_info || '',
-            pr.id_type || 'School ID', pr.id_number || '', pr.contact_number || '',
-            pr.address || '', pr.purpose || 'Event Attendance', pr.photo || null,
-            pr.registration_type || 'Online Registration', pr.status || 'pre-registered',
-            pr.qr_code || '', pr.visitor_number || ''
-          ]);
+          const rowData: Record<string, any> = {
+            event_id: eventId,
+            full_name: fullName,
+            visitor_type: vType,
+            visit_info: vInfo,
+            id_type: idType,
+            id_number: idNum,
+            contact_number: contact,
+            email: email,
+            address: address,
+            purpose: purpose,
+            photo: photo,
+            registration_type: regType,
+            status: status,
+            qr_code: qrCode,
+            visitor_number: visNum
+          };
+
+          const colsToInsert: string[] = [];
+          const valuesToInsert: any[] = [];
+          for (const [colKey, colVal] of Object.entries(rowData)) {
+            if (colSet.has(colKey)) {
+              colsToInsert.push(colKey);
+              valuesToInsert.push(colVal);
+            }
+          }
+
+          if (colsToInsert.length > 0) {
+            const placeholders = colsToInsert.map(() => '?').join(', ');
+            await dbRun(
+              `INSERT INTO pre_registrations (${colsToInsert.join(', ')}) VALUES (${placeholders})`,
+              valuesToInsert
+            );
+          }
+        } else {
+          // If pre-registration already exists, backfill any missing details from the backup
+          const updates: string[] = [];
+          const updateVals: any[] = [];
+          if (vInfo && colSet.has('visit_info')) {
+            updates.push('visit_info = COALESCE(NULLIF(visit_info, ""), ?)');
+            updateVals.push(vInfo);
+          }
+          if (email && colSet.has('email')) {
+            updates.push('email = COALESCE(NULLIF(email, ""), ?)');
+            updateVals.push(email);
+          }
+          if (photo && colSet.has('photo')) {
+            updates.push('photo = COALESCE(photo, ?)');
+            updateVals.push(photo);
+          }
+          if (visNum && colSet.has('visitor_number')) {
+            updates.push('visitor_number = COALESCE(NULLIF(visitor_number, ""), ?)');
+            updateVals.push(visNum);
+          }
+          if (qrCode && colSet.has('qr_code')) {
+            updates.push('qr_code = COALESCE(NULLIF(qr_code, ""), ?)');
+            updateVals.push(qrCode);
+          }
+          if (contact && colSet.has('contact_number')) {
+            updates.push('contact_number = COALESCE(NULLIF(contact_number, ""), ?)');
+            updateVals.push(contact);
+          }
+          if (address && colSet.has('address')) {
+            updates.push('address = COALESCE(NULLIF(address, ""), ?)');
+            updateVals.push(address);
+          }
+
+          if (updates.length > 0) {
+            updateVals.push(existingPR.id);
+            await dbRun(`UPDATE pre_registrations SET ${updates.join(', ')} WHERE id = ?`, updateVals).catch(() => {});
+          }
         }
       }
     }

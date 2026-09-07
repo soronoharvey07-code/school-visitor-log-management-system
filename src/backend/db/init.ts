@@ -116,7 +116,7 @@ export async function initializeDatabase(): Promise<void> {
         )
       `);
 
-      // Ensure optional columns exist
+      // Ensure optional columns exist on users
       await dbRun('ALTER TABLE users ADD COLUMN last_login DATETIME').catch(() => {});
       await dbRun('ALTER TABLE users ADD COLUMN last_logout DATETIME').catch(() => {});
 
@@ -142,6 +142,20 @@ export async function initializeDatabase(): Promise<void> {
         )
       `);
 
+      // Safe schema migrations for visitors table
+      await dbRun('ALTER TABLE visitors ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN id_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN id_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN contact_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN address TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN purpose TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN photo TEXT').catch(() => {});
+      await dbRun("ALTER TABLE visitors ADD COLUMN status TEXT DEFAULT 'Inside'").catch(() => {});
+      await dbRun("ALTER TABLE visitors ADD COLUMN registration_type TEXT DEFAULT 'Walk-in'").catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN time_in DATETIME').catch(() => {});
+      await dbRun('ALTER TABLE visitors ADD COLUMN time_out DATETIME').catch(() => {});
+
       // 3. Visits history table
       await dbRun(`
         CREATE TABLE IF NOT EXISTS visits (
@@ -160,6 +174,16 @@ export async function initializeDatabase(): Promise<void> {
         )
       `);
 
+      // Safe schema migrations for visits table
+      await dbRun('ALTER TABLE visits ADD COLUMN visitor_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN purpose TEXT').catch(() => {});
+      await dbRun("ALTER TABLE visits ADD COLUMN status TEXT DEFAULT 'signed-in'").catch(() => {});
+      await dbRun("ALTER TABLE visits ADD COLUMN registration_type TEXT DEFAULT 'Walk-in'").catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN time_in DATETIME').catch(() => {});
+      await dbRun('ALTER TABLE visits ADD COLUMN time_out DATETIME').catch(() => {});
+
       // 4. Events table
       await dbRun(`
         CREATE TABLE IF NOT EXISTS events (
@@ -174,6 +198,9 @@ export async function initializeDatabase(): Promise<void> {
         )
       `);
       await dbRun(`ALTER TABLE events ADD COLUMN status TEXT DEFAULT 'active'`).catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN description TEXT').catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN location TEXT').catch(() => {});
+      await dbRun('ALTER TABLE events ADD COLUMN registration_link TEXT').catch(() => {});
 
       // 5. Pre-registrations table
       await dbRun(`
@@ -185,11 +212,33 @@ export async function initializeDatabase(): Promise<void> {
           email TEXT,
           address TEXT,
           visitor_type TEXT,
+          visit_info TEXT,
+          id_type TEXT,
+          id_number TEXT,
           purpose TEXT,
+          photo TEXT,
+          registration_type TEXT DEFAULT 'Online Registration',
+          status TEXT DEFAULT 'pre-registered',
+          qr_code TEXT,
+          visitor_number TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (event_id) REFERENCES events(id)
         )
       `);
+
+      // Safe schema migrations for pre_registrations table (ensures existing DBs acquire all missing columns)
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visit_info TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN id_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN id_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN photo TEXT').catch(() => {});
+      await dbRun("ALTER TABLE pre_registrations ADD COLUMN registration_type TEXT DEFAULT 'Online Registration'").catch(() => {});
+      await dbRun("ALTER TABLE pre_registrations ADD COLUMN status TEXT DEFAULT 'pre-registered'").catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN qr_code TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visitor_number TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN email TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN address TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN visitor_type TEXT').catch(() => {});
+      await dbRun('ALTER TABLE pre_registrations ADD COLUMN purpose TEXT').catch(() => {});
 
       // 6. System settings table (for persistence of Auto-Logout and other system configs)
       await dbRun(`

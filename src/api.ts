@@ -116,13 +116,18 @@ export const API = {
   },
   updateAutoLogoutSettings: (settings: { 
     enabled: boolean; 
+    automaticLogoutEnabled?: boolean;
     durationValue: number; 
     durationUnit: 'minutes' | 'hours';
     warningDurationValue: number;
     warningDurationUnit: 'seconds' | 'minutes';
+    isConfigured?: boolean;
   }) => fetchWithAuth('/settings/auto-logout', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings)
+    body: JSON.stringify({
+      ...settings,
+      automaticLogoutEnabled: settings.automaticLogoutEnabled !== undefined ? settings.automaticLogoutEnabled : settings.enabled
+    })
   })
 };

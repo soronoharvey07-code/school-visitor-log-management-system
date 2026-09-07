@@ -22,7 +22,9 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
 
   // Automatic Logout state initialized from persistent storage
   const initialSettings = getStoredAutoLogoutSettings();
-  const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(initialSettings.enabled);
+  const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(
+    initialSettings.automaticLogoutEnabled !== undefined ? initialSettings.automaticLogoutEnabled : initialSettings.enabled
+  );
   const [durationValue, setDurationValue] = useState<number>(initialSettings.durationValue);
   const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours'>(initialSettings.durationUnit);
   const [warningDurationValue, setWarningDurationValue] = useState<number>(initialSettings.warningDurationValue);
@@ -36,7 +38,9 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
       API.getAutoLogoutSettings()
         .then((data) => {
           if (data && typeof data === 'object') {
-            const isEnabled = Boolean(data.enabled);
+            const isEnabled = Boolean(
+              data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
+            );
             const val = Number(data.durationValue) > 0 ? Number(data.durationValue) : 30;
             const unit = data.durationUnit === 'hours' ? 'hours' : 'minutes';
             const warnVal = Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30;
@@ -48,19 +52,23 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
             setWarningDurationValue(warnVal);
             setWarningDurationUnit(warnUnit);
 
-            localStorage.setItem('auto_logout_settings', JSON.stringify({
+            const savedObj = {
               enabled: isEnabled,
+              automaticLogoutEnabled: isEnabled,
               durationValue: val,
               durationUnit: unit,
               warningDurationValue: warnVal,
               warningDurationUnit: warnUnit,
               isConfigured: true
-            }));
+            };
+            localStorage.setItem('auto_logout_settings', JSON.stringify(savedObj));
+            localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
           }
         })
         .catch(() => {
           const cached = getStoredAutoLogoutSettings();
-          setAutoLogoutEnabled(cached.enabled);
+          const isEnabled = cached.automaticLogoutEnabled !== undefined ? cached.automaticLogoutEnabled : cached.enabled;
+          setAutoLogoutEnabled(isEnabled);
           setDurationValue(cached.durationValue);
           setDurationUnit(cached.durationUnit);
           setWarningDurationValue(cached.warningDurationValue);
@@ -89,6 +97,7 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
 
     const payload: AutoLogoutSettings = {
       enabled: enabledToSave,
+      automaticLogoutEnabled: enabledToSave,
       durationValue: valToSave,
       durationUnit: unitToSave,
       warningDurationValue: warnValToSave,
@@ -100,11 +109,13 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
       setIsSavingAutoLogout(true);
       await API.updateAutoLogoutSettings(payload);
       localStorage.setItem('auto_logout_settings', JSON.stringify(payload));
+      localStorage.setItem('automaticLogoutEnabled', String(enabledToSave));
       window.dispatchEvent(new CustomEvent('auto-logout-updated', { detail: payload }));
       showNotification('Automatic logout settings saved successfully.');
     } catch (err: any) {
       console.warn('API save error, saving to local persistent cache:', err);
       localStorage.setItem('auto_logout_settings', JSON.stringify(payload));
+      localStorage.setItem('automaticLogoutEnabled', String(enabledToSave));
       window.dispatchEvent(new CustomEvent('auto-logout-updated', { detail: payload }));
       showNotification('Automatic logout settings saved.');
     } finally {
@@ -438,8 +449,11 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-sm font-semibold ${autoLogoutEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-fg'}`}>
-                      {autoLogoutEnabled ? 'Enabled' : 'Disabled'}
+                    <span
+                      id="auto-logout-status-badge"
+                      className={`text-sm font-semibold ${autoLogoutEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-fg'}`}
+                    >
+                      Automatic Logout: {autoLogoutEnabled ? 'ON' : 'OFF'}
                     </span>
                     <button
                       id="auto-logout-toggle-btn"
@@ -450,7 +464,7 @@ export function SettingsView({ isDarkMode = true, setIsDarkMode, userRole }: Set
                         handleSaveAutoLogout(newEnabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit);
                       }}
                       className={`relative inline-block w-11 h-6 rounded-full transition-colors ${autoLogoutEnabled ? 'bg-[#3b82f6]' : 'bg-slate-300 dark:bg-slate-700'}`}
-                      aria-label="Toggle automatic logout"
+                      aria-label={`Toggle automatic logout, currently Automatic Logout: ${autoLogoutEnabled ? 'ON' : 'OFF'}`}
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${autoLogoutEnabled ? 'left-6' : 'left-1'}`}></div>
                     </button>

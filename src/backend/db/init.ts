@@ -248,11 +248,33 @@ export async function initializeDatabase(): Promise<void> {
         )
       `);
 
-      const autoLogoutConfig = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
+      const autoLogoutConfig = await dbGet<any>("SELECT value FROM system_settings WHERE key IN ('auto_logout', 'automaticLogoutEnabled')");
       if (!autoLogoutConfig) {
+        let initialEnabled = false;
+        const envVal = process.env.AUTOMATIC_LOGOUT_ENABLED ?? process.env.AUTO_LOGOUT_ENABLED;
+        if (envVal !== undefined && envVal !== '') {
+          const clean = String(envVal).trim().toLowerCase();
+          if (clean === 'true' || clean === '1' || clean === 'on' || clean === 'yes') initialEnabled = true;
+          else if (clean === 'false' || clean === '0' || clean === 'off' || clean === 'no') initialEnabled = false;
+        }
+
+        const initialConfig = {
+          enabled: initialEnabled,
+          automaticLogoutEnabled: initialEnabled,
+          durationValue: 30,
+          durationUnit: 'minutes',
+          warningDurationValue: 30,
+          warningDurationUnit: 'seconds',
+          isConfigured: envVal !== undefined
+        };
+        const serialized = JSON.stringify(initialConfig);
         await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [
           'auto_logout',
-          JSON.stringify({ enabled: false, durationValue: 30, durationUnit: 'minutes', warningDurationValue: 30, warningDurationUnit: 'seconds', isConfigured: true })
+          serialized
+        ]).catch(() => {});
+        await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [
+          'automaticLogoutEnabled',
+          serialized
         ]).catch(() => {});
       }
 

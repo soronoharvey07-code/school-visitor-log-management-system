@@ -44,6 +44,7 @@ export interface User {
 
 export interface AutoLogoutSettings {
   enabled: boolean;
+  automaticLogoutEnabled?: boolean;
   durationValue: number;
   durationUnit: 'minutes' | 'hours';
   warningDurationValue: number;
@@ -53,6 +54,7 @@ export interface AutoLogoutSettings {
 
 export const DEFAULT_AUTO_LOGOUT_SETTINGS: AutoLogoutSettings = {
   enabled: false,
+  automaticLogoutEnabled: false,
   durationValue: 30,
   durationUnit: 'minutes',
   warningDurationValue: 30,
@@ -62,12 +64,26 @@ export const DEFAULT_AUTO_LOGOUT_SETTINGS: AutoLogoutSettings = {
 
 export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
   try {
+    // 1. Check client environment variables if provided in production build
+    const envEnabledRaw = (import.meta as any).env?.VITE_AUTOMATIC_LOGOUT_ENABLED ?? (import.meta as any).env?.VITE_AUTO_LOGOUT_ENABLED;
+    let envEnabled: boolean | undefined = undefined;
+    if (envEnabledRaw !== undefined && envEnabledRaw !== '') {
+      const clean = String(envEnabledRaw).trim().toLowerCase();
+      if (clean === 'true' || clean === '1' || clean === 'on') envEnabled = true;
+      else if (clean === 'false' || clean === '0' || clean === 'off') envEnabled = false;
+    }
+
     const raw = localStorage.getItem('auto_logout_settings');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null) {
+        const isEnabled = parsed.automaticLogoutEnabled !== undefined
+          ? Boolean(parsed.automaticLogoutEnabled)
+          : Boolean(parsed.enabled);
+
         return {
-          enabled: Boolean(parsed.enabled),
+          enabled: envEnabled !== undefined && !parsed.isConfigured ? envEnabled : isEnabled,
+          automaticLogoutEnabled: envEnabled !== undefined && !parsed.isConfigured ? envEnabled : isEnabled,
           durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
           durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
           warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
@@ -75,6 +91,27 @@ export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
           isConfigured: Boolean(parsed.isConfigured)
         };
       }
+    }
+
+    // Direct key in localStorage
+    const directVal = localStorage.getItem('automaticLogoutEnabled');
+    if (directVal !== null) {
+      const isEnabled = directVal === 'true' || directVal === '1';
+      return {
+        ...DEFAULT_AUTO_LOGOUT_SETTINGS,
+        enabled: isEnabled,
+        automaticLogoutEnabled: isEnabled,
+        isConfigured: true
+      };
+    }
+
+    if (envEnabled !== undefined) {
+      return {
+        ...DEFAULT_AUTO_LOGOUT_SETTINGS,
+        enabled: envEnabled,
+        automaticLogoutEnabled: envEnabled,
+        isConfigured: true
+      };
     }
   } catch (err) {
     console.warn('Error reading stored auto-logout settings:', err);

@@ -208,8 +208,12 @@ export default function App() {
       try {
         const data = await API.getAutoLogoutSettings();
         if (data && typeof data === 'object') {
+          const isEnabled = Boolean(
+            data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
+          );
           const normalized: AutoLogoutSettings = {
-            enabled: Boolean(data.enabled),
+            enabled: isEnabled,
+            automaticLogoutEnabled: isEnabled,
             durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : 30,
             durationUnit: data.durationUnit === 'hours' ? 'hours' : 'minutes',
             warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30,
@@ -218,6 +222,7 @@ export default function App() {
           };
           setAutoLogoutSettings(normalized);
           localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
+          localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
 
           if (!normalized.enabled) {
             sessionStorage.removeItem('auth_login_time');
@@ -241,8 +246,12 @@ export default function App() {
 
     const handleSettingsUpdated = (e: any) => {
       if (e.detail && typeof e.detail === 'object') {
+        const isEnabled = Boolean(
+          e.detail.automaticLogoutEnabled !== undefined ? e.detail.automaticLogoutEnabled : e.detail.enabled
+        );
         const normalized: AutoLogoutSettings = {
-          enabled: Boolean(e.detail.enabled),
+          enabled: isEnabled,
+          automaticLogoutEnabled: isEnabled,
           durationValue: Number(e.detail.durationValue) > 0 ? Number(e.detail.durationValue) : 30,
           durationUnit: e.detail.durationUnit === 'hours' ? 'hours' : 'minutes',
           warningDurationValue: Number(e.detail.warningDurationValue) > 0 ? Number(e.detail.warningDurationValue) : 30,
@@ -251,6 +260,7 @@ export default function App() {
         };
         setAutoLogoutSettings(normalized);
         localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
+        localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
 
         if (!normalized.enabled) {
           sessionStorage.removeItem('auth_login_time');
@@ -389,8 +399,14 @@ export default function App() {
         if (autoLogoutRes.ok) {
           const fetchedSettings = await autoLogoutRes.json();
           if (fetchedSettings && typeof fetchedSettings === 'object') {
+            const isEnabled = Boolean(
+              fetchedSettings.automaticLogoutEnabled !== undefined
+                ? fetchedSettings.automaticLogoutEnabled
+                : fetchedSettings.enabled
+            );
             currentAutoLogout = {
-              enabled: Boolean(fetchedSettings.enabled),
+              enabled: isEnabled,
+              automaticLogoutEnabled: isEnabled,
               durationValue: Number(fetchedSettings.durationValue) > 0 ? Number(fetchedSettings.durationValue) : 30,
               durationUnit: fetchedSettings.durationUnit === 'hours' ? 'hours' : 'minutes',
               warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : 30,
@@ -398,6 +414,7 @@ export default function App() {
               isConfigured: true
             };
             localStorage.setItem('auto_logout_settings', JSON.stringify(currentAutoLogout));
+            localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
           }
         }
       } catch (err) {

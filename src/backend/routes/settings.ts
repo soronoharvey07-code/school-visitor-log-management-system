@@ -6,38 +6,77 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function getEnvAutoLogout(): boolean | undefined {
+  const envVal = process.env.AUTOMATIC_LOGOUT_ENABLED ?? process.env.AUTO_LOGOUT_ENABLED;
+  if (envVal !== undefined && envVal !== '') {
+    const clean = String(envVal).trim().toLowerCase();
+    if (clean === 'true' || clean === '1' || clean === 'on' || clean === 'yes') return true;
+    if (clean === 'false' || clean === '0' || clean === 'off' || clean === 'no') return false;
+  }
+  return undefined;
+}
+
 // 1. Get Auto-Logout settings (Publicly accessible on application startup before authentication)
 router.get('/auto-logout', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
+  const envVal = getEnvAutoLogout();
+
   try {
-    const row = await dbGet<any>('SELECT value FROM system_settings WHERE key = ?', ['auto_logout']);
+    const row = await dbGet<any>(
+      "SELECT value FROM system_settings WHERE key IN ('auto_logout', 'automaticLogoutEnabled', 'automatic_logout_enabled') ORDER BY key ASC LIMIT 1"
+    );
     if (row && row.value) {
-      const parsed = JSON.parse(row.value);
-      return res.json({
-        enabled: Boolean(parsed.enabled),
-        durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
-        durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
-        warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
-        warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-        isConfigured: Boolean(parsed.isConfigured)
-      });
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(row.value);
+      } catch {
+        if (row.value === 'true' || row.value === '1') parsed = { enabled: true, automaticLogoutEnabled: true };
+        else if (row.value === 'false' || row.value === '0') parsed = { enabled: false, automaticLogoutEnabled: false };
+      }
+
+      if (parsed && typeof parsed === 'object') {
+        const isDbEnabled = parsed.automaticLogoutEnabled !== undefined
+          ? Boolean(parsed.automaticLogoutEnabled)
+          : Boolean(parsed.enabled);
+
+        const finalEnabled = envVal !== undefined ? envVal : isDbEnabled;
+
+        return res.json({
+          enabled: finalEnabled,
+          automaticLogoutEnabled: finalEnabled,
+          durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
+          durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
+          warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
+          warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
+          isConfigured: true
+        });
+      }
     }
+
+    const defaultEnabled = envVal !== undefined ? envVal : false;
     res.json({
-      enabled: false,
+      enabled: defaultEnabled,
+      automaticLogoutEnabled: defaultEnabled,
       durationValue: 30,
       durationUnit: 'minutes',
       warningDurationValue: 30,
       warningDurationUnit: 'seconds',
-      isConfigured: true
+      isConfigured: envVal !== undefined
     });
   } catch (err: any) {
     console.error('Error fetching auto-logout settings:', err);
+    const defaultEnabled = envVal !== undefined ? envVal : false;
     res.json({
-      enabled: false,
+      enabled: defaultEnabled,
+      automaticLogoutEnabled: defaultEnabled,
       durationValue: 30,
       durationUnit: 'minutes',
       warningDurationValue: 30,
       warningDurationUnit: 'seconds',
-      isConfigured: true
+      isConfigured: envVal !== undefined
     });
   }
 });
@@ -47,9 +86,16 @@ router.use(authenticate);
 
 // Update Auto-Logout settings (Admin only)
 router.put('/auto-logout', requireAdmin, async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
-    const { enabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit } = req.body;
-    const isEnabled = Boolean(enabled);
+    const { enabled, automaticLogoutEnabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit } = req.body;
+    const isEnabled = Boolean(
+      automaticLogoutEnabled !== undefined ? automaticLogoutEnabled : (enabled !== undefined ? enabled : false)
+    );
+
     let parsedValue = parseInt(durationValue, 10);
     if (isNaN(parsedValue) || parsedValue <= 0) {
       parsedValue = 30;
@@ -64,6 +110,7 @@ router.put('/auto-logout', requireAdmin, async (req, res) => {
 
     const newSettings = {
       enabled: isEnabled,
+      automaticLogoutEnabled: isEnabled,
       durationValue: parsedValue,
       durationUnit: unit,
       warningDurationValue: parsedWarningValue,
@@ -72,10 +119,15 @@ router.put('/auto-logout', requireAdmin, async (req, res) => {
       updatedAt: Date.now()
     };
 
+    const serialized = JSON.stringify(newSettings);
     await dbRun(
       'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-      ['auto_logout', JSON.stringify(newSettings)]
+      ['auto_logout', serialized]
     );
+    await dbRun(
+      'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      ['automaticLogoutEnabled', serialized]
+    ).catch(() => {});
 
     res.json({
       success: true,
@@ -642,8 +694,12 @@ router.post('/restore-data', async (req, res) => {
     // 4. Optionally restore Auto-Logout settings if included in backup
     if (req.body.autoLogoutSettings && typeof req.body.autoLogoutSettings === 'object') {
       const s = req.body.autoLogoutSettings;
+      const isEnabled = Boolean(
+        s.automaticLogoutEnabled !== undefined ? s.automaticLogoutEnabled : s.enabled
+      );
       const newSettings = {
-        enabled: Boolean(s.enabled),
+        enabled: isEnabled,
+        automaticLogoutEnabled: isEnabled,
         durationValue: Number(s.durationValue) > 0 ? Number(s.durationValue) : 30,
         durationUnit: s.durationUnit === 'hours' ? 'hours' : 'minutes',
         warningDurationValue: Number(s.warningDurationValue) > 0 ? Number(s.warningDurationValue) : 30,
@@ -651,10 +707,15 @@ router.post('/restore-data', async (req, res) => {
         isConfigured: true,
         updatedAt: Date.now()
       };
+      const serialized = JSON.stringify(newSettings);
       await dbRun(
         'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        ['auto_logout', JSON.stringify(newSettings)]
+        ['auto_logout', serialized]
       ).catch((err) => console.warn('Could not restore auto-logout settings:', err));
+      await dbRun(
+        'INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        ['automaticLogoutEnabled', serialized]
+      ).catch(() => {});
     }
 
     // Retrieve full merged dataset from database

@@ -75,7 +75,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req: any, res) => {
   const { id } = req.params;
-  const { password, role, active } = req.body;
+  const { username, password, role, active } = req.body;
   const currentUserId = req.user?.id;
   const currentUsername = req.user?.username?.toLowerCase();
 
@@ -103,11 +103,19 @@ router.put('/:id', async (req: any, res) => {
       }
     }
 
+    const newUsername = (username && typeof username === 'string' && username.trim()) ? username.trim() : targetUser.username;
+    if (newUsername.toLowerCase() !== targetUser.username.toLowerCase()) {
+      const existing = await dbGet<any>('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?', [newUsername, targetId]);
+      if (existing) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+    }
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await dbRun('UPDATE users SET password_hash = ?, role = COALESCE(?, role), active = COALESCE(?, active) WHERE id = ?', [hash, role, active, targetId]);
+      await dbRun('UPDATE users SET username = ?, password_hash = ?, role = COALESCE(?, role), active = COALESCE(?, active) WHERE id = ?', [newUsername, hash, role, active, targetId]);
     } else {
-      await dbRun('UPDATE users SET role = COALESCE(?, role), active = COALESCE(?, active) WHERE id = ?', [role, active, targetId]);
+      await dbRun('UPDATE users SET username = ?, role = COALESCE(?, role), active = COALESCE(?, active) WHERE id = ?', [newUsername, role, active, targetId]);
     }
     res.json({ message: 'User updated successfully' });
   } catch (err) {

@@ -155,13 +155,20 @@ export function AdminView({ users = [], setUsers, currentUser, onLogout }: Admin
   const handleSaveUser = async (updatedUser: User, newPassword?: string) => {
     setNotification(null);
     try {
-      await API.updateUser(updatedUser.id, {
-        role: updatedUser.role === 'Admin' ? 'admin' : 'guard',
+      const res = await API.updateUser(updatedUser.id, {
+        username: updatedUser.username,
+        role: isAdminRole(updatedUser.role) ? 'admin' : 'guard',
         active: updatedUser.status === 'Active' ? 1 : 0,
         ...(newPassword ? { password: newPassword } : {})
       });
+      if (res && res.error) {
+        setNotification({ type: 'error', message: res.error });
+        return;
+      }
     } catch (e: any) {
       console.error('API save user error:', e);
+      setNotification({ type: 'error', message: e.message || 'Failed to update user.' });
+      return;
     }
 
     if (setUsers) {

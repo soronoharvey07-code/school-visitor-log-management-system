@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Eye, EyeOff } from 'lucide-react';
 import { User } from '../types';
 
 interface EditUserModalProps {
@@ -13,7 +13,12 @@ export function EditUserModal({ user, users, onSave, onClose }: EditUserModalPro
   const [fullName, setFullName] = useState(user.fullName);
   const [username, setUsername] = useState(user.username);
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState(user.role);
+  const [showPassword, setShowPassword] = useState(false);
+  const normalizeRole = (r?: string) => {
+    const lower = (r || '').toLowerCase();
+    return lower === 'admin' || lower === 'administrator' ? 'Administrator' : 'Guard';
+  };
+  const [role, setRole] = useState(normalizeRole(user.role));
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,19 +35,26 @@ export function EditUserModal({ user, users, onSave, onClose }: EditUserModalPro
       return;
     }
 
-    const duplicateUser = users.find(u => u.username === username.trim() && u.id !== user.id);
+    const duplicateUser = users.find(u => u.username.trim().toLowerCase() === username.trim().toLowerCase() && String(u.id) !== String(user.id));
     if (duplicateUser) {
       setError('Username is already taken.');
       return;
     }
 
-    if (user.role === 'Administrator' && role !== 'Administrator') {
-      const otherAdmins = users.filter(u => u.role === 'Administrator' && u.id !== user.id);
+    const isCurrentAdmin = ['admin', 'administrator'].includes((user.role || '').toLowerCase());
+    const isNewAdmin = ['admin', 'administrator'].includes(role.toLowerCase());
+    if (isCurrentAdmin && !isNewAdmin) {
+      const otherAdmins = users.filter(u => 
+        ['admin', 'administrator'].includes((u.role || '').toLowerCase()) && 
+        String(u.id) !== String(user.id)
+      );
       if (otherAdmins.length === 0) {
         setError('Cannot change role: this is the last remaining Administrator account.');
         return;
       }
     }
+
+    const trimmedPassword = password.trim();
 
     onSave(
       {
@@ -51,7 +63,7 @@ export function EditUserModal({ user, users, onSave, onClose }: EditUserModalPro
         username: username.trim(),
         role: role
       },
-      password ? password : undefined
+      trimmedPassword ? trimmedPassword : undefined
     );
   };
 
@@ -93,15 +105,38 @@ export function EditUserModal({ user, users, onSave, onClose }: EditUserModalPro
           </div>
           
           <div>
-            <label className="block text-sm font-semibold text-label-fg mb-1.5">
-              Password <span className="text-muted-fg font-normal">(leave blank to keep current)</span>
-            </label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="edit-user-password" className="block text-sm font-semibold text-label-fg">
+                Password
+              </label>
+              <span className="text-xs text-muted-fg font-normal">
+                (leave blank to keep current)
+              </span>
+            </div>
+            <div className="relative">
+              <input 
+                id="edit-user-password"
+                type={showPassword ? "text" : "password"} 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter new password (or leave blank)"
+                autoComplete="new-password"
+                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-3 pr-10 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
+              />
+              <button
+                id="edit-user-password-toggle-btn"
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-fg hover:text-main-fg transition-colors p-1.5 rounded-md hover:bg-hover-bg cursor-pointer"
+                title={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted-fg">
+              Existing passwords are encrypted and cannot be displayed. Enter a new password only if you wish to change it.
+            </p>
           </div>
           
           <div className="relative">
@@ -125,13 +160,13 @@ export function EditUserModal({ user, users, onSave, onClose }: EditUserModalPro
             <button 
               type="button"
               onClick={onClose}
-              className="px-6 py-2.5 bg-transparent border border-app-border text-label-fg font-medium rounded-lg hover:bg-hover-bg transition-colors"
+              className="px-6 py-2.5 bg-transparent border border-app-border text-label-fg font-medium rounded-lg hover:bg-hover-bg transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button 
               type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm cursor-pointer"
             >
               Save
             </button>

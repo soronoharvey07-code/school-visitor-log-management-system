@@ -195,9 +195,17 @@ export default function App() {
   const lastActivityRef = useRef<number>(Date.now());
   const activityListenersAttachedRef = useRef<boolean>(false);
   const lastActivityThrottleRef = useRef<number>(0);
+  const isWarningActiveRef = useRef<boolean>(false);
 
   // Activity detection: mousemove, mousedown, click, keydown, scroll, touchstart
   const handleUserActivity = useCallback(() => {
+    // When warning popup is visible, do NOT cancel the warning or reset the timer
+    // for minor mouse movement, typing, cursor movement, scrolling, or casual hovering.
+    // The warning must remain visible until the user explicitly clicks "Stay Logged In".
+    if (isWarningActiveRef.current) {
+      return;
+    }
+
     const now = Date.now();
     // Throttle activity updates to at most once every 300ms for performance
     if (now - lastActivityThrottleRef.current < 300) {
@@ -206,15 +214,6 @@ export default function App() {
     lastActivityThrottleRef.current = now;
     lastActivityRef.current = now;
     sessionStorage.setItem('auth_last_activity', String(now));
-
-    // If warning popup is currently visible, dismiss it because the user is active
-    setShowWarningModal(prev => {
-      if (prev) {
-        console.log('[AUTO-LOGOUT] User activity detected while warning visible -> Warning dismissed, timer reset');
-        return false;
-      }
-      return false;
-    });
   }, []);
 
   // Stable activity listener attachment
@@ -242,6 +241,7 @@ export default function App() {
   // Stop current session timer and remove activity listeners
   const cleanupSessionTimers = useCallback((reason?: string) => {
     console.log(`[AUTO-LOGOUT] CLEANUP SESSION - Reason: ${reason || 'unspecified'}`);
+    isWarningActiveRef.current = false;
     if (inactivityTimerRef.current) {
       clearInterval(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
@@ -283,6 +283,7 @@ export default function App() {
     }
     lastActivityRef.current = initialActivity;
     sessionStorage.setItem('auth_last_activity', String(initialActivity));
+    isWarningActiveRef.current = false;
 
     // 4. Attach activity listeners for this session
     attachActivityListeners();
@@ -317,6 +318,7 @@ export default function App() {
 
       if (elapsed >= durationMs) {
         console.log(`[AUTO-LOGOUT] AUTOMATIC LOGOUT - Inactivity reached: ${elapsed}ms >= ${durationMs}ms (Session #${currentGeneration})`);
+        isWarningActiveRef.current = false;
         cleanupSessionTimers('automatic logout reached');
 
         API.logout().catch(() => {});
@@ -336,10 +338,12 @@ export default function App() {
         setShowLogoutModal(false);
         setShowAutoLogoutModal(true);
       } else if (elapsed >= warningThresholdMs) {
+        isWarningActiveRef.current = true;
         setShowWarningModal(true);
         const remaining = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
         setWarningCountdown(remaining);
       } else {
+        isWarningActiveRef.current = false;
         setShowWarningModal(false);
       }
     };
@@ -442,16 +446,19 @@ export default function App() {
     };
   }, [currentUser, autoLogoutSettings, startSessionLifecycle, cleanupSessionTimers]);
 
-  const handleKeepLoggedIn = () => {
-    console.log('[AUTO-LOGOUT] User clicked "Keep Logged In" -> Resetting inactivity timer');
+  const handleStayLoggedIn = () => {
+    console.log('[AUTO-LOGOUT] User clicked "Stay Logged In" -> Resetting inactivity timer');
     const now = Date.now();
+    isWarningActiveRef.current = false;
     lastActivityRef.current = now;
     sessionStorage.setItem('auth_last_activity', String(now));
     setShowWarningModal(false);
   };
+  const handleKeepLoggedIn = handleStayLoggedIn;
 
   const handleWarningLogout = () => {
     console.log('[AUTO-LOGOUT] User clicked "Log Out" on warning modal');
+    isWarningActiveRef.current = false;
     setShowWarningModal(false);
     handleLogout();
   };
@@ -940,11 +947,11 @@ export default function App() {
             <div className="grid grid-cols-2 gap-3.5">
               <button
                 type="button"
-                id="warning-keep-logged-in-btn"
-                onClick={handleKeepLoggedIn}
+                id="warning-stay-logged-in-btn"
+                onClick={handleStayLoggedIn}
                 className="w-full py-3 px-4 bg-[#3b82f6] hover:bg-[#2563eb] active:bg-[#1d4ed8] text-white rounded-xl text-sm font-semibold transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50"
               >
-                Keep Logged In
+                Stay Logged In
               </button>
               <button
                 type="button"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Menu, X, Shield, LayoutDashboard, UserPlus, Users, Calendar, BarChart2, Settings, LogOut, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 import rhmcLogo from './assets/images/rhmc-logo.webp';
 import { API } from './api';
@@ -88,18 +88,6 @@ export default function App() {
     }
     const saved = sessionStorage.getItem('school-current-user');
     return saved ? JSON.parse(saved) : null;
-  });
-
-  // Login timestamp state (used strictly for non-inactivity session timer)
-  const [loginTime, setLoginTime] = useState<number | null>(() => {
-    const token = sessionStorage.getItem('token');
-    if (!token) return null;
-    const saved = sessionStorage.getItem('auth_login_time');
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      return !isNaN(parsed) && parsed > 0 ? parsed : null;
-    }
-    return null;
   });
 
   // Auto-Logout settings state (persists across app restarts in localStorage & database)
@@ -200,16 +188,175 @@ export default function App() {
   }, []);
 
   
-  const autoLogoutTimerRef = useRef<any>(null);
+  // --- AUTOMATIC LOGOUT INACTIVITY LIFECYCLE MANAGER ---
+  // Authoritative references for session isolation & stale timer prevention
+  const sessionGenerationRef = useRef<number>(0);
+  const inactivityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+  const activityListenersAttachedRef = useRef<boolean>(false);
+  const lastActivityThrottleRef = useRef<number>(0);
 
-  // Fetch and keep Auto-Logout settings up-to-date
+  // Activity detection: mousemove, mousedown, click, keydown, scroll, touchstart
+  const handleUserActivity = useCallback(() => {
+    const now = Date.now();
+    // Throttle activity updates to at most once every 300ms for performance
+    if (now - lastActivityThrottleRef.current < 300) {
+      return;
+    }
+    lastActivityThrottleRef.current = now;
+    lastActivityRef.current = now;
+    sessionStorage.setItem('auth_last_activity', String(now));
+
+    // If warning popup is currently visible, dismiss it because the user is active
+    setShowWarningModal(prev => {
+      if (prev) {
+        console.log('[AUTO-LOGOUT] User activity detected while warning visible -> Warning dismissed, timer reset');
+        return false;
+      }
+      return false;
+    });
+  }, []);
+
+  // Stable activity listener attachment
+  const attachActivityListeners = useCallback(() => {
+    if (activityListenersAttachedRef.current) return;
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(evt => {
+      window.addEventListener(evt, handleUserActivity, { passive: true });
+    });
+    activityListenersAttachedRef.current = true;
+    console.log('[AUTO-LOGOUT] Activity listeners attached');
+  }, [handleUserActivity]);
+
+  // Stable activity listener removal
+  const removeActivityListeners = useCallback(() => {
+    if (!activityListenersAttachedRef.current) return;
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(evt => {
+      window.removeEventListener(evt, handleUserActivity);
+    });
+    activityListenersAttachedRef.current = false;
+    console.log('[AUTO-LOGOUT] Activity listeners removed');
+  }, [handleUserActivity]);
+
+  // Stop current session timer and remove activity listeners
+  const cleanupSessionTimers = useCallback((reason?: string) => {
+    console.log(`[AUTO-LOGOUT] CLEANUP SESSION - Reason: ${reason || 'unspecified'}`);
+    if (inactivityTimerRef.current) {
+      clearInterval(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    removeActivityListeners();
+    setShowWarningModal(false);
+  }, [removeActivityListeners]);
+
+  // Centralized Automatic Logout Inactivity Session Manager
+  const startSessionLifecycle = useCallback((user: User, settings: AutoLogoutSettings) => {
+    // 1. Clean up any previous session timer & listeners completely
+    cleanupSessionTimers('initializing fresh session');
+
+    const isEnabled = Boolean(
+      settings.automaticLogoutEnabled !== undefined
+        ? settings.automaticLogoutEnabled
+        : settings.enabled
+    );
+
+    // If automaticLogoutEnabled === true: start timer else: do not start timer
+    if (!user || !isEnabled) {
+      console.log('[AUTO-LOGOUT] Session timer NOT started: user is null or automaticLogoutEnabled is false');
+      return;
+    }
+
+    // 2. Increment session generation to prevent any stale async/timer callbacks
+    sessionGenerationRef.current += 1;
+    const currentGeneration = sessionGenerationRef.current;
+
+    // 3. Set last activity timestamp (preserve from sessionStorage if recent, else Date.now())
+    const now = Date.now();
+    const storedActivity = sessionStorage.getItem('auth_last_activity');
+    let initialActivity = now;
+    if (storedActivity) {
+      const parsed = parseInt(storedActivity, 10);
+      if (!isNaN(parsed) && parsed > 0 && parsed <= now) {
+        initialActivity = parsed;
+      }
+    }
+    lastActivityRef.current = initialActivity;
+    sessionStorage.setItem('auth_last_activity', String(initialActivity));
+
+    // 4. Attach activity listeners for this session
+    attachActivityListeners();
+
+    // 5. Calculate durations
+    const durationMinutes = settings.durationUnit === 'hours'
+      ? settings.durationValue * 60
+      : settings.durationValue;
+    const durationMs = Math.max(5000, durationMinutes * 60 * 1000);
+
+    const warningDurationSec = settings.warningDurationUnit === 'minutes'
+      ? (settings.warningDurationValue || 30) * 60
+      : (settings.warningDurationValue || 30);
+    const warningDurationMs = Math.min(warningDurationSec * 1000, Math.max(1000, durationMs - 1000));
+    const warningThresholdMs = Math.max(0, durationMs - warningDurationMs);
+
+    console.log(`[AUTO-LOGOUT] START INACTIVITY TIMER (Session #${currentGeneration}) - Duration: ${durationMinutes}m (${durationMs}ms), Warning: ${warningDurationSec}s (${warningDurationMs}ms), Threshold: ${warningThresholdMs}ms`);
+
+    const checkInactivity = () => {
+      // Stale timer guard: only execute if session generation matches
+      if (sessionGenerationRef.current !== currentGeneration) {
+        console.log(`[AUTO-LOGOUT] Stale timer tick ignored (Session #${currentGeneration} vs active #${sessionGenerationRef.current})`);
+        if (inactivityTimerRef.current) {
+          clearInterval(inactivityTimerRef.current);
+          inactivityTimerRef.current = null;
+        }
+        return;
+      }
+
+      const currentTime = Date.now();
+      const elapsed = currentTime - lastActivityRef.current;
+
+      if (elapsed >= durationMs) {
+        console.log(`[AUTO-LOGOUT] AUTOMATIC LOGOUT - Inactivity reached: ${elapsed}ms >= ${durationMs}ms (Session #${currentGeneration})`);
+        cleanupSessionTimers('automatic logout reached');
+
+        API.logout().catch(() => {});
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('school-current-user');
+        sessionStorage.removeItem('auth_last_activity');
+        sessionStorage.removeItem('auth_login_time');
+        localStorage.removeItem('token');
+        localStorage.removeItem('school-current-user');
+        localStorage.removeItem('auth_last_activity');
+        localStorage.removeItem('auth_login_time');
+
+        // Note: Persistent settings in auto_logout_settings and automaticLogoutEnabled are NOT modified!
+        setCurrentUser(null);
+        setShowWarningModal(false);
+        setIsMenuOpen(false);
+        setShowLogoutModal(false);
+        setShowAutoLogoutModal(true);
+      } else if (elapsed >= warningThresholdMs) {
+        setShowWarningModal(true);
+        const remaining = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
+        setWarningCountdown(remaining);
+      } else {
+        setShowWarningModal(false);
+      }
+    };
+
+    checkInactivity();
+    inactivityTimerRef.current = setInterval(checkInactivity, 500);
+  }, [attachActivityListeners, cleanupSessionTimers]);
+
+  // Synchronize Auto-Logout settings on application startup and listen for custom update events
   useEffect(() => {
-    // Load persistent auto logout settings immediately on app start!
     const syncAutoLogoutSettings = async () => {
       try {
         const localSettings = getStoredAutoLogoutSettings();
+        console.log('[AUTO-LOGOUT] LOAD SETTINGS - Initial local settings:', localSettings);
         const data = await API.getAutoLogoutSettings();
         if (data && typeof data === 'object') {
+          console.log('[AUTO-LOGOUT] LOAD SETTINGS - Fetched on app start:', data);
           if (data.isConfigured || !localSettings.isConfigured) {
             const isEnabled = Boolean(
               data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
@@ -221,30 +368,19 @@ export default function App() {
               durationUnit: data.durationUnit === 'hours' ? 'hours' : (localSettings.durationUnit || 'minutes'),
               warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : (localSettings.warningDurationValue || 30),
               warningDurationUnit: data.warningDurationUnit === 'minutes' ? 'minutes' : (localSettings.warningDurationUnit || 'seconds'),
-              isConfigured: true
+              isConfigured: Boolean(data.isConfigured)
             };
             setAutoLogoutSettings(normalized);
             localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
             localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
-
-            if (!normalized.enabled) {
-              sessionStorage.removeItem('auth_login_time');
-              setLoginTime(null);
-              setShowWarningModal(false);
-            }
           } else if (localSettings.isConfigured) {
-            // Re-seed server if server was cold/unconfigured
             API.updateAutoLogoutSettings(localSettings).catch(() => {});
           }
         }
       } catch {
         const cached = getStoredAutoLogoutSettings();
+        console.log('[AUTO-LOGOUT] LOAD SETTINGS - Fallback cached settings:', cached);
         setAutoLogoutSettings(cached);
-        if (!cached.enabled) {
-          sessionStorage.removeItem('auth_login_time');
-          setLoginTime(null);
-          setShowWarningModal(false);
-        }
       }
     };
 
@@ -264,23 +400,10 @@ export default function App() {
           warningDurationUnit: e.detail.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
           isConfigured: true
         };
+        console.log('[AUTO-LOGOUT] auto-logout-updated received in App:', normalized);
         setAutoLogoutSettings(normalized);
         localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
         localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
-
-        if (!normalized.enabled) {
-          sessionStorage.removeItem('auth_login_time');
-          setLoginTime(null);
-          setShowWarningModal(false);
-        } else {
-          // If enabled during active session, start timer if not already running
-          const stored = sessionStorage.getItem('auth_login_time');
-          if (!stored) {
-            const now = Date.now();
-            sessionStorage.setItem('auth_login_time', String(now));
-            setLoginTime(now);
-          }
-        }
       } else {
         syncAutoLogoutSettings();
       }
@@ -300,111 +423,35 @@ export default function App() {
       automaticLogoutEnabled: isEnabled,
       isConfigured: true
     };
+    console.log('[AUTO-LOGOUT] UPDATE SETTINGS in App - automaticLogoutEnabled:', isEnabled);
     setAutoLogoutSettings(normalized);
     localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
     localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
-
-    if (!isEnabled) {
-      sessionStorage.removeItem('auth_login_time');
-      setLoginTime(null);
-      if (autoLogoutTimerRef.current) {
-        clearInterval(autoLogoutTimerRef.current);
-        autoLogoutTimerRef.current = null;
-      }
-      setShowWarningModal(false);
-    } else {
-      if (currentUser && !loginTime) {
-        const now = Date.now();
-        sessionStorage.setItem('auth_login_time', String(now));
-        setLoginTime(now);
-      }
-    }
   };
 
-  // Non-inactivity Automatic Logout Timer
-  // The timer starts upon login and strictly measures duration from login timestamp.
-  // It does NOT reset because of mouse, keyboard, touch, navigation, or other interactions.
-  // The warning popup appears configured seconds/minutes BEFORE session expires.
+  // Automatic Logout Timer lifecycle tied strictly to authenticated user & autoLogoutSettings
   useEffect(() => {
-    if (autoLogoutTimerRef.current) {
-      clearInterval(autoLogoutTimerRef.current);
-      autoLogoutTimerRef.current = null;
+    if (currentUser) {
+      startSessionLifecycle(currentUser, autoLogoutSettings);
+    } else {
+      cleanupSessionTimers('user not logged in');
     }
 
-    if (!currentUser || !autoLogoutSettings.enabled || !loginTime) {
-      setShowWarningModal(false);
-      return;
-    }
-
-    const durationMinutes = autoLogoutSettings.durationUnit === 'hours' 
-      ? autoLogoutSettings.durationValue * 60 
-      : autoLogoutSettings.durationValue;
-    const durationMs = durationMinutes * 60 * 1000;
-
-    const warningDurationSec = autoLogoutSettings.warningDurationUnit === 'minutes'
-      ? (autoLogoutSettings.warningDurationValue || 30) * 60
-      : (autoLogoutSettings.warningDurationValue || 30);
-    const warningDurationMs = Math.min(warningDurationSec * 1000, Math.max(1000, durationMs - 1000));
-    const warningThresholdMs = Math.max(0, durationMs - warningDurationMs);
-
-    const checkExpiration = () => {
-      const storedTimeStr = sessionStorage.getItem('auth_login_time');
-      const effectiveStart = storedTimeStr ? parseInt(storedTimeStr, 10) : loginTime;
-      if (!effectiveStart || isNaN(effectiveStart)) return;
-
-      const elapsed = Date.now() - effectiveStart;
-
-      if (elapsed >= durationMs) {
-        if (autoLogoutTimerRef.current) {
-          clearInterval(autoLogoutTimerRef.current);
-          autoLogoutTimerRef.current = null;
-        }
-        // Exceeded total duration -> Automatically log out user and redirect to Login page
-        API.logout().catch(() => {});
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('school-current-user');
-        sessionStorage.removeItem('auth_login_time');
-        localStorage.removeItem('token');
-        localStorage.removeItem('school-current-user');
-        localStorage.removeItem('auth_login_time');
-        setCurrentUser(null);
-        setLoginTime(null);
-        setShowWarningModal(false);
-        setIsMenuOpen(false);
-        setShowLogoutModal(false);
-        setShowAutoLogoutModal(true);
-      } else if (elapsed >= warningThresholdMs) {
-        // Within warning window before expiration -> show warning popup with real-time countdown
-        setShowWarningModal(true);
-        const remaining = Math.max(0, Math.ceil((durationMs - elapsed) / 1000));
-        setWarningCountdown(remaining);
-      } else {
-        setShowWarningModal(false);
-      }
-    };
-
-    checkExpiration();
-    autoLogoutTimerRef.current = setInterval(checkExpiration, 500);
     return () => {
-      if (autoLogoutTimerRef.current) {
-        clearInterval(autoLogoutTimerRef.current);
-        autoLogoutTimerRef.current = null;
-      }
+      cleanupSessionTimers('session lifecycle cleanup');
     };
-  }, [currentUser, autoLogoutSettings, loginTime]);
+  }, [currentUser, autoLogoutSettings, startSessionLifecycle, cleanupSessionTimers]);
 
   const handleKeepLoggedIn = () => {
-    const newTimestamp = Date.now();
-    sessionStorage.setItem('auth_login_time', String(newTimestamp));
-    setLoginTime(newTimestamp);
+    console.log('[AUTO-LOGOUT] User clicked "Keep Logged In" -> Resetting inactivity timer');
+    const now = Date.now();
+    lastActivityRef.current = now;
+    sessionStorage.setItem('auth_last_activity', String(now));
     setShowWarningModal(false);
-    const warningSec = autoLogoutSettings.warningDurationUnit === 'minutes'
-      ? (autoLogoutSettings.warningDurationValue || 30) * 60
-      : (autoLogoutSettings.warningDurationValue || 30);
-    setWarningCountdown(warningSec);
   };
 
   const handleWarningLogout = () => {
+    console.log('[AUTO-LOGOUT] User clicked "Log Out" on warning modal');
     setShowWarningModal(false);
     handleLogout();
   };
@@ -430,12 +477,14 @@ export default function App() {
 
       // Load saved Automatic Logout configuration from server
       let currentAutoLogout = getStoredAutoLogoutSettings();
+      console.log('[AUTO-LOGOUT] LOAD SETTINGS - Initial from localStorage:', currentAutoLogout);
       try {
         const headers: Record<string, string> = { Authorization: `Bearer ${data.token}` };
         const autoLogoutRes = await fetch('/api/settings/auto-logout', { headers });
         if (autoLogoutRes.ok) {
           const fetchedSettings = await autoLogoutRes.json();
           if (fetchedSettings && typeof fetchedSettings === 'object') {
+            console.log('[AUTO-LOGOUT] LOAD SETTINGS - Fetched on login:', fetchedSettings);
             if (fetchedSettings.isConfigured || !currentAutoLogout.isConfigured) {
               const isEnabled = Boolean(
                 fetchedSettings.automaticLogoutEnabled !== undefined
@@ -449,7 +498,7 @@ export default function App() {
                 durationUnit: fetchedSettings.durationUnit === 'hours' ? 'hours' : (currentAutoLogout.durationUnit || 'minutes'),
                 warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : (currentAutoLogout.warningDurationValue || 30),
                 warningDurationUnit: fetchedSettings.warningDurationUnit === 'minutes' ? 'minutes' : (currentAutoLogout.warningDurationUnit || 'seconds'),
-                isConfigured: true
+                isConfigured: Boolean(fetchedSettings.isConfigured)
               };
             } else if (currentAutoLogout.isConfigured) {
               // Re-seed server if server was cold/unconfigured
@@ -464,25 +513,27 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.warn('Could not refresh auto-logout settings on login:', err);
+        console.warn('[AUTO-LOGOUT] Could not refresh auto-logout settings on login:', err);
       }
+
+      const isEnabled = Boolean(
+        currentAutoLogout.automaticLogoutEnabled !== undefined
+          ? currentAutoLogout.automaticLogoutEnabled
+          : currentAutoLogout.enabled
+      );
+
+      console.log('[AUTO-LOGOUT] LOGIN - User:', data.user?.username, 'Role:', data.user?.role, 'automaticLogoutEnabled:', isEnabled);
       setAutoLogoutSettings(currentAutoLogout);
 
-      // Start new timer from this login ONLY if auto logout is enabled!
-      const loginTimestamp = Date.now();
-      if (currentAutoLogout.enabled) {
-        sessionStorage.setItem('auth_login_time', String(loginTimestamp));
-        setLoginTime(loginTimestamp);
-      } else {
-        sessionStorage.removeItem('auth_login_time');
-        setLoginTime(null);
-      }
-
+      // Record fresh initial activity for this session
+      const now = Date.now();
+      sessionStorage.setItem('auth_last_activity', String(now));
       sessionStorage.setItem('school-current-user', JSON.stringify(data.user));
 
       // Clear any legacy persistent localStorage auth keys
       localStorage.removeItem('token');
       localStorage.removeItem('school-current-user');
+      localStorage.removeItem('auth_last_activity');
       localStorage.removeItem('auth_login_time');
 
       setShowAutoLogoutModal(false);
@@ -502,18 +553,17 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    if (autoLogoutTimerRef.current) {
-      clearInterval(autoLogoutTimerRef.current);
-      autoLogoutTimerRef.current = null;
-    }
+    console.log('[AUTO-LOGOUT] LOGOUT - Manual user logout');
+    cleanupSessionTimers('manual user logout');
     API.logout().catch(() => {});
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('school-current-user');
+    sessionStorage.removeItem('auth_last_activity');
     sessionStorage.removeItem('auth_login_time');
     localStorage.removeItem('token');
     localStorage.removeItem('school-current-user');
+    localStorage.removeItem('auth_last_activity');
     localStorage.removeItem('auth_login_time');
-    setLoginTime(null);
     setCurrentUser(null);
     setShowWarningModal(false);
     setShowAutoLogoutModal(false);

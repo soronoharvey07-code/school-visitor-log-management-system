@@ -55,13 +55,14 @@ export function SettingsView({
     }
   }, [propAutoLogoutSettings]);
 
-  // Sync with server and listen for custom broadcast events
+  // Sync with custom broadcast events
   useEffect(() => {
     const handleBroadcast = (e: any) => {
       if (e.detail && typeof e.detail === 'object') {
         const isEnabled = Boolean(
           e.detail.automaticLogoutEnabled !== undefined ? e.detail.automaticLogoutEnabled : e.detail.enabled
         );
+        console.log('[AUTO-LOGOUT] auto-logout-updated received in SettingsView:', e.detail);
         setAutoLogoutEnabled(isEnabled);
         if (e.detail.durationValue) setDurationValue(Number(e.detail.durationValue));
         if (e.detail.durationUnit) setDurationUnit(e.detail.durationUnit);
@@ -71,60 +72,10 @@ export function SettingsView({
     };
     window.addEventListener('auto-logout-updated', handleBroadcast);
 
-    if (isAdmin) {
-      API.getAutoLogoutSettings()
-        .then((data) => {
-          if (data && typeof data === 'object') {
-            const currentLocal = propAutoLogoutSettings || getStoredAutoLogoutSettings();
-
-            // If server has configured settings, or if client is not configured, adopt server
-            if (data.isConfigured || !currentLocal.isConfigured) {
-              const isEnabled = Boolean(
-                data.automaticLogoutEnabled !== undefined ? data.automaticLogoutEnabled : data.enabled
-              );
-              const val = Number(data.durationValue) > 0 ? Number(data.durationValue) : 30;
-              const unit = data.durationUnit === 'hours' ? 'hours' : 'minutes';
-              const warnVal = Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : 30;
-              const warnUnit = data.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds';
-
-              setAutoLogoutEnabled(isEnabled);
-              setDurationValue(val);
-              setDurationUnit(unit);
-              setWarningDurationValue(warnVal);
-              setWarningDurationUnit(warnUnit);
-
-              const savedObj: AutoLogoutSettings = {
-                enabled: isEnabled,
-                automaticLogoutEnabled: isEnabled,
-                durationValue: val,
-                durationUnit: unit,
-                warningDurationValue: warnVal,
-                warningDurationUnit: warnUnit,
-                isConfigured: true
-              };
-              localStorage.setItem('auto_logout_settings', JSON.stringify(savedObj));
-              localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
-            } else if (currentLocal.isConfigured) {
-              // Client already had configured settings but server was cold/unconfigured -> persist client's settings to server
-              API.updateAutoLogoutSettings(currentLocal).catch(() => {});
-            }
-          }
-        })
-        .catch(() => {
-          const cached = getStoredAutoLogoutSettings();
-          const isEnabled = cached.automaticLogoutEnabled !== undefined ? cached.automaticLogoutEnabled : cached.enabled;
-          setAutoLogoutEnabled(isEnabled);
-          setDurationValue(cached.durationValue);
-          setDurationUnit(cached.durationUnit);
-          setWarningDurationValue(cached.warningDurationValue);
-          setWarningDurationUnit(cached.warningDurationUnit);
-        });
-    }
-
     return () => {
       window.removeEventListener('auto-logout-updated', handleBroadcast);
     };
-  }, [isAdmin, propAutoLogoutSettings]);
+  }, []);
 
   const showNotification = (msg: string) => {
     setMessage(msg);
@@ -153,6 +104,8 @@ export function SettingsView({
       warningDurationUnit: warnUnitToSave,
       isConfigured: true
     };
+
+    console.log('[AUTO-LOGOUT] SAVE SETTINGS - Settings:', payload);
 
     try {
       setIsSavingAutoLogout(true);
@@ -515,7 +468,9 @@ export function SettingsView({
                       id="auto-logout-toggle-btn"
                       type="button"
                       onClick={() => {
-                        const newEnabled = !autoLogoutEnabled;
+                        const previous = autoLogoutEnabled;
+                        const newEnabled = !previous;
+                        console.log('[AUTO-LOGOUT] TOGGLE CHANGE - Previous:', previous, 'New:', newEnabled);
                         setAutoLogoutEnabled(newEnabled);
                         handleSaveAutoLogout(newEnabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit);
                       }}

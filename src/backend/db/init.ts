@@ -265,7 +265,7 @@ export async function initializeDatabase(): Promise<void> {
           durationUnit: 'minutes',
           warningDurationValue: 30,
           warningDurationUnit: 'seconds',
-          isConfigured: envVal !== undefined
+          isConfigured: false
         };
         const serialized = JSON.stringify(initialConfig);
         await dbRun('INSERT INTO system_settings (key, value) VALUES (?, ?)', [

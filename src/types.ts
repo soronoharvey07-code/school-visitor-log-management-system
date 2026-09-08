@@ -80,15 +80,17 @@ export function getStoredAutoLogoutSettings(): AutoLogoutSettings {
         const isEnabled = parsed.automaticLogoutEnabled !== undefined
           ? Boolean(parsed.automaticLogoutEnabled)
           : Boolean(parsed.enabled);
+        const isConfigured = Boolean(parsed.isConfigured);
+        const effectiveEnabled = isConfigured ? isEnabled : (envEnabled !== undefined ? envEnabled : isEnabled);
 
         return {
-          enabled: envEnabled !== undefined && !parsed.isConfigured ? envEnabled : isEnabled,
-          automaticLogoutEnabled: envEnabled !== undefined && !parsed.isConfigured ? envEnabled : isEnabled,
+          enabled: effectiveEnabled,
+          automaticLogoutEnabled: effectiveEnabled,
           durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
           durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
           warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
           warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
-          isConfigured: Boolean(parsed.isConfigured)
+          isConfigured
         };
       }
     }

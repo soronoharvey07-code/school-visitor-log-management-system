@@ -18,7 +18,7 @@ import { EventRegistration } from './components/views/EventRegistration';
 import { StatsRow } from './components/StatsRow';
 import { User, AutoLogoutSettings, getStoredAutoLogoutSettings } from './types';
 import { consolidateVisitors } from './utils/visitorManager';
-import { syncIdSequence } from './utils/idSequence';
+import { syncIdSequence, resetIdSequence } from './utils/idSequence';
 import { formatManilaTime, formatManilaFullDate, parseToMs, parseOptionalToMs } from './utils/dateUtils';
 
 type Tab = 'dashboard' | 'admin' | 'register' | 'visitors' | 'all-visitors' | 'event' | 'reports' | 'settings';
@@ -108,21 +108,28 @@ export default function App() {
     }
   }
 
+  const isDataClearedRef = useRef(false);
+
   const [visitors, setVisitors] = useState<any[]>(() => {
-    const saved = localStorage.getItem('school-visitor-log');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('school-visitor-log');
+      if (saved) {
         const parsed = JSON.parse(saved);
-        return consolidateVisitors(parsed);
-      } catch (e) {
-        return [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return consolidateVisitors(parsed);
+        }
       }
+    } catch (e) {
+      console.warn('Error reading initial visitors from localStorage:', e);
     }
     return [];
   });
 
   useEffect(() => {
-    localStorage.setItem('school-visitor-log', JSON.stringify(visitors));
+    // Only save to localStorage if visitors array has items or data was explicitly cleared
+    if (visitors.length > 0 || isDataClearedRef.current) {
+      localStorage.setItem('school-visitor-log', JSON.stringify(visitors));
+    }
   }, [visitors]);
 
   useEffect(() => {
@@ -143,9 +150,11 @@ export default function App() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          const consolidated = consolidateVisitors(parsed);
-          setVisitors(consolidated);
-          syncIdSequence(consolidated);
+          if (Array.isArray(parsed)) {
+            const consolidated = consolidateVisitors(parsed);
+            setVisitors(consolidated);
+            syncIdSequence(consolidated);
+          }
         } catch (err) {}
       }
     };
@@ -157,8 +166,11 @@ export default function App() {
     };
 
     const handleDataCleared = () => {
+      isDataClearedRef.current = true;
       setVisitors([]);
       localStorage.removeItem('school-visitor-log');
+      localStorage.removeItem('svlms_deleted_visitor_ids');
+      resetIdSequence();
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -688,9 +700,62 @@ export default function App() {
               history: history.length > 0 ? history : undefined
             };
           });
-          const consolidated = consolidateVisitors(mapped);
-          setVisitors(consolidated);
-          syncIdSequence(consolidated);
+          // 1. Read latest local records from localStorage
+          let localList: any[] = [];
+          try {
+            const raw = localStorage.getItem('school-visitor-log');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) localList = parsed;
+            }
+          } catch (e) {}
+
+          // 2. Read deleted visitor IDs so explicitly deleted records are not revived
+          let deletedIds: string[] = [];
+          try {
+            const delRaw = localStorage.getItem('svlms_deleted_visitor_ids');
+            if (delRaw) {
+              const parsedDel = JSON.parse(delRaw);
+              if (Array.isArray(parsedDel)) deletedIds = parsedDel;
+            }
+          } catch (e) {}
+          const deletedSet = new Set(deletedIds.map(String));
+
+          setVisitors(prev => {
+            // If data was explicitly cleared, keep it cleared
+            if (isDataClearedRef.current) return [];
+
+            // Merge local storage, current in-memory state, and incoming server data
+            const combined = [...localList, ...prev, ...mapped].filter(v => {
+              if (!v || !v.name) return false;
+              const vId = String(v.id || '');
+              const vNum = String(v.idNumber || v.visitor_number || '');
+              if (vId && deletedSet.has(vId)) return false;
+              if (vNum && deletedSet.has(vNum)) return false;
+              return true;
+            });
+
+            const consolidated = consolidateVisitors(combined);
+            syncIdSequence(consolidated);
+
+            // If local storage has visitors that the server is currently missing (e.g. Vercel serverless cold start),
+            // automatically sync them to the server so reports & server endpoints stay updated
+            if (mapped.length < consolidated.length && consolidated.length > 0) {
+              const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+              if (token) {
+                fetch('/api/settings/restore-data', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ visitors: consolidated })
+                }).catch(() => {});
+              }
+            }
+
+            return consolidated;
+          });
         }
       }).catch(err => {
         console.warn('Unable to load visitors:', err);

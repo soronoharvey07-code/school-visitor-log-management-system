@@ -214,9 +214,9 @@ app.post('/api/public/register', async (req, res) => {
         );
       }
     } else {
-      // Genuinely a new visitor: assign next available unique Visitor ID
+      // Genuinely a new visitor: assign next available unique Visitor ID (0001 reserved; starts at 0002)
       const allVisitors = await dbAll<any>('SELECT visitor_number FROM visitors');
-      let maxNum = 0;
+      let maxNum = 1; // 0001 is permanently reserved
       if (Array.isArray(allVisitors)) {
         for (const v of allVisitors) {
           if (v.visitor_number) {

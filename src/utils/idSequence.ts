@@ -52,13 +52,16 @@ export function getHighestVisitorId(additionalVisitors?: any[]): number {
 }
 
 /**
- * Returns the next available Visitor ID (formatted as e.g. "0004").
- * Detects the highest existing ID across all sources, increments by 1,
+ * Returns the next available Visitor ID (formatted as e.g. "0002", "0003", ...).
+ * Note: 0001 is permanently reserved and must never be assigned.
+ * Detects the highest existing ID across all sources, increments by 1 (minimum 0002),
  * and saves the updated counter permanently to localStorage.
  */
 export function getNextIdNumber(existingVisitors?: any[]): string {
   const highest = getHighestVisitorId(existingVisitors);
-  const next = highest + 1;
+  // 0001 is permanently reserved, so effective highest is at least 1, making next at least 2 ("0002")
+  const effectiveHighest = Math.max(1, highest);
+  const next = effectiveHighest + 1;
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('visitor-id-sequence', next.toString());
@@ -72,22 +75,24 @@ export function getNextIdNumber(existingVisitors?: any[]): string {
  */
 export function syncIdSequence(visitors: any[]): number {
   const highest = getHighestVisitorId(visitors);
+  const effectiveHighest = Math.max(1, highest);
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem('visitor-id-sequence', highest.toString());
+      window.localStorage.setItem('visitor-id-sequence', effectiveHighest.toString());
     }
   } catch (e) {}
-  return highest;
+  return effectiveHighest;
 }
 
 /**
- * Resets the ID sequence counter to 0 (used when data is cleared).
+ * Resets the ID sequence counter (used when data is cleared).
+ * 0001 remains reserved, so next visitor will start from 0002.
  */
 export function resetIdSequence(): void {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem('visitor-id-sequence');
-      window.localStorage.setItem('visitor-id-sequence', '0');
+      window.localStorage.setItem('visitor-id-sequence', '1');
     }
   } catch (e) {}
 }

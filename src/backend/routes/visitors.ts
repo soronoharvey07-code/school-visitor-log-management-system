@@ -112,10 +112,10 @@ async function processPhotoToDataUrl(
   return trimmed;
 }
 
-// Generate visitor number
+// Generate visitor number (0001 is permanently reserved; new visitors start at 0002)
 const generateVisitorNumber = async () => {
   const allVisitors = await dbAll<any>('SELECT visitor_number FROM visitors');
-  let maxNum = 0;
+  let maxNum = 1; // 0001 is permanently reserved
   if (Array.isArray(allVisitors)) {
     for (const v of allVisitors) {
       if (v.visitor_number) {

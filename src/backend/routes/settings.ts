@@ -375,10 +375,10 @@ router.post('/clear-data', async (req, res) => {
   }
 });
 
-// Safe helper to generate next visitor number
+// Safe helper to generate next visitor number (0001 reserved; starts at 0002)
 async function getNextSafeVisitorNumber(): Promise<string> {
   const allVisitors = await dbAll<any>('SELECT visitor_number FROM visitors');
-  let maxNum = 0;
+  let maxNum = 1; // 0001 is permanently reserved
   if (Array.isArray(allVisitors)) {
     for (const v of allVisitors) {
       if (v.visitor_number) {

@@ -84,7 +84,7 @@ export function DashboardView({ visitors = [], setVisitors }: DashboardViewProps
             history: history.length > 0 ? history : undefined
           };
         });
-        setVisitors(consolidateVisitors(mapped));
+        setVisitors(prev => consolidateVisitors([...prev, ...mapped]));
       }
     } catch (e) {
       console.warn('Failed to refresh visitors after timeout:', e);

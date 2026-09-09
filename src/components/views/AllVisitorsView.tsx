@@ -26,8 +26,22 @@ export function AllVisitorsView({ visitors = [], setVisitors }: AllVisitorsViewP
     } catch (e) {
       console.warn('API delete error:', e);
     }
+    try {
+      const delRaw = localStorage.getItem('svlms_deleted_visitor_ids');
+      const delList: string[] = delRaw ? JSON.parse(delRaw) : [];
+      if (!delList.includes(String(id))) {
+        delList.push(String(id));
+        localStorage.setItem('svlms_deleted_visitor_ids', JSON.stringify(delList));
+      }
+    } catch (e) {}
     if (setVisitors) {
-      setVisitors(prev => prev.filter(v => v.id !== id));
+      setVisitors(prev => {
+        const remaining = prev.filter(v => v.id !== id && v.idNumber !== id);
+        try {
+          localStorage.setItem('school-visitor-log', JSON.stringify(remaining));
+        } catch (e) {}
+        return remaining;
+      });
     }
   };
 

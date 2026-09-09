@@ -446,7 +446,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             history: history.length > 0 ? history : undefined
           };
         });
-        setVisitors(consolidateVisitors(mapped));
+        setVisitors(prev => consolidateVisitors([...prev, ...mapped]));
       }
     } catch (err: any) {
       console.error(err);

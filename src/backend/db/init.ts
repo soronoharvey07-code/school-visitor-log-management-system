@@ -250,7 +250,7 @@ export async function initializeDatabase(): Promise<void> {
 
       const autoLogoutConfig = await dbGet<any>("SELECT value FROM system_settings WHERE key IN ('auto_logout', 'automaticLogoutEnabled')");
       if (!autoLogoutConfig) {
-        let initialEnabled = false;
+        let initialEnabled = true;
         const envVal = process.env.AUTOMATIC_LOGOUT_ENABLED ?? process.env.AUTO_LOGOUT_ENABLED;
         if (envVal !== undefined && envVal !== '') {
           const clean = String(envVal).trim().toLowerCase();
@@ -261,9 +261,9 @@ export async function initializeDatabase(): Promise<void> {
         const initialConfig = {
           enabled: initialEnabled,
           automaticLogoutEnabled: initialEnabled,
-          durationValue: 30,
+          durationValue: 2,
           durationUnit: 'minutes',
-          warningDurationValue: 30,
+          warningDurationValue: 10,
           warningDurationUnit: 'seconds',
           isConfigured: false
         };

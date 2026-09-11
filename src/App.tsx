@@ -283,13 +283,26 @@ export default function App() {
     sessionGenerationRef.current += 1;
     const currentGeneration = sessionGenerationRef.current;
 
-    // 3. Set last activity timestamp (preserve from sessionStorage if recent, else Date.now())
+    // Calculate durations
+    const durationMinutes = settings.durationUnit === 'hours'
+      ? settings.durationValue * 60
+      : settings.durationValue;
+    const durationMs = Math.max(5000, durationMinutes * 60 * 1000);
+
+    const warningDurationSec = settings.warningDurationUnit === 'minutes'
+      ? (settings.warningDurationValue || 10) * 60
+      : (settings.warningDurationValue || 10);
+    const warningDurationMs = Math.min(warningDurationSec * 1000, Math.max(1000, durationMs - 1000));
+    const warningThresholdMs = Math.max(0, durationMs - warningDurationMs);
+
+    // 3. Set last activity timestamp (preserve from sessionStorage if recent and unexpired, else Date.now())
     const now = Date.now();
     const storedActivity = sessionStorage.getItem('auth_last_activity');
     let initialActivity = now;
     if (storedActivity) {
       const parsed = parseInt(storedActivity, 10);
-      if (!isNaN(parsed) && parsed > 0 && parsed <= now) {
+      // Only keep stored activity if it's within the session duration; otherwise start fresh
+      if (!isNaN(parsed) && parsed > 0 && parsed <= now && (now - parsed < durationMs)) {
         initialActivity = parsed;
       }
     }
@@ -299,18 +312,6 @@ export default function App() {
 
     // 4. Attach activity listeners for this session
     attachActivityListeners();
-
-    // 5. Calculate durations
-    const durationMinutes = settings.durationUnit === 'hours'
-      ? settings.durationValue * 60
-      : settings.durationValue;
-    const durationMs = Math.max(5000, durationMinutes * 60 * 1000);
-
-    const warningDurationSec = settings.warningDurationUnit === 'minutes'
-      ? (settings.warningDurationValue || 30) * 60
-      : (settings.warningDurationValue || 30);
-    const warningDurationMs = Math.min(warningDurationSec * 1000, Math.max(1000, durationMs - 1000));
-    const warningThresholdMs = Math.max(0, durationMs - warningDurationMs);
 
     console.log(`[AUTO-LOGOUT] START INACTIVITY TIMER (Session #${currentGeneration}) - Duration: ${durationMinutes}m (${durationMs}ms), Warning: ${warningDurationSec}s (${warningDurationMs}ms), Threshold: ${warningThresholdMs}ms`);
 
@@ -380,17 +381,15 @@ export default function App() {
             const normalized: AutoLogoutSettings = {
               enabled: isEnabled,
               automaticLogoutEnabled: isEnabled,
-              durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : (localSettings.durationValue || 30),
+              durationValue: Number(data.durationValue) > 0 ? Number(data.durationValue) : (localSettings.durationValue || 2),
               durationUnit: data.durationUnit === 'hours' ? 'hours' : (localSettings.durationUnit || 'minutes'),
-              warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : (localSettings.warningDurationValue || 30),
+              warningDurationValue: Number(data.warningDurationValue) > 0 ? Number(data.warningDurationValue) : (localSettings.warningDurationValue || 10),
               warningDurationUnit: data.warningDurationUnit === 'minutes' ? 'minutes' : (localSettings.warningDurationUnit || 'seconds'),
               isConfigured: Boolean(data.isConfigured)
             };
             setAutoLogoutSettings(normalized);
             localStorage.setItem('auto_logout_settings', JSON.stringify(normalized));
             localStorage.setItem('automaticLogoutEnabled', String(isEnabled));
-          } else if (localSettings.isConfigured) {
-            API.updateAutoLogoutSettings(localSettings).catch(() => {});
           }
         }
       } catch {
@@ -410,9 +409,9 @@ export default function App() {
         const normalized: AutoLogoutSettings = {
           enabled: isEnabled,
           automaticLogoutEnabled: isEnabled,
-          durationValue: Number(e.detail.durationValue) > 0 ? Number(e.detail.durationValue) : 30,
+          durationValue: Number(e.detail.durationValue) > 0 ? Number(e.detail.durationValue) : 2,
           durationUnit: e.detail.durationUnit === 'hours' ? 'hours' : 'minutes',
-          warningDurationValue: Number(e.detail.warningDurationValue) > 0 ? Number(e.detail.warningDurationValue) : 30,
+          warningDurationValue: Number(e.detail.warningDurationValue) > 0 ? Number(e.detail.warningDurationValue) : 10,
           warningDurationUnit: e.detail.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
           isConfigured: true
         };
@@ -513,9 +512,9 @@ export default function App() {
               currentAutoLogout = {
                 enabled: isEnabled,
                 automaticLogoutEnabled: isEnabled,
-                durationValue: Number(fetchedSettings.durationValue) > 0 ? Number(fetchedSettings.durationValue) : (currentAutoLogout.durationValue || 30),
+                durationValue: Number(fetchedSettings.durationValue) > 0 ? Number(fetchedSettings.durationValue) : (currentAutoLogout.durationValue || 2),
                 durationUnit: fetchedSettings.durationUnit === 'hours' ? 'hours' : (currentAutoLogout.durationUnit || 'minutes'),
-                warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : (currentAutoLogout.warningDurationValue || 30),
+                warningDurationValue: Number(fetchedSettings.warningDurationValue) > 0 ? Number(fetchedSettings.warningDurationValue) : (currentAutoLogout.warningDurationValue || 10),
                 warningDurationUnit: fetchedSettings.warningDurationUnit === 'minutes' ? 'minutes' : (currentAutoLogout.warningDurationUnit || 'seconds'),
                 isConfigured: Boolean(fetchedSettings.isConfigured)
               };

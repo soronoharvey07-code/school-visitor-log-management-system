@@ -33,9 +33,9 @@ export function SettingsView({
   const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(
     initialSettings.automaticLogoutEnabled !== undefined ? initialSettings.automaticLogoutEnabled : initialSettings.enabled
   );
-  const [durationValue, setDurationValue] = useState<number>(initialSettings.durationValue || 30);
+  const [durationValue, setDurationValue] = useState<number>(initialSettings.durationValue || 2);
   const [durationUnit, setDurationUnit] = useState<'minutes' | 'hours'>(initialSettings.durationUnit || 'minutes');
-  const [warningDurationValue, setWarningDurationValue] = useState<number>(initialSettings.warningDurationValue || 30);
+  const [warningDurationValue, setWarningDurationValue] = useState<number>(initialSettings.warningDurationValue || 10);
   const [warningDurationUnit, setWarningDurationUnit] = useState<'seconds' | 'minutes'>(initialSettings.warningDurationUnit || 'seconds');
   const [isSavingAutoLogout, setIsSavingAutoLogout] = useState(false);
 
@@ -48,9 +48,9 @@ export function SettingsView({
         ? propAutoLogoutSettings.automaticLogoutEnabled
         : propAutoLogoutSettings.enabled;
       setAutoLogoutEnabled(isEnabled);
-      setDurationValue(propAutoLogoutSettings.durationValue || 30);
+      setDurationValue(propAutoLogoutSettings.durationValue || 2);
       setDurationUnit(propAutoLogoutSettings.durationUnit || 'minutes');
-      setWarningDurationValue(propAutoLogoutSettings.warningDurationValue || 30);
+      setWarningDurationValue(propAutoLogoutSettings.warningDurationValue || 10);
       setWarningDurationUnit(propAutoLogoutSettings.warningDurationUnit || 'seconds');
     }
   }, [propAutoLogoutSettings]);
@@ -94,6 +94,15 @@ export function SettingsView({
     const unitToSave = overrideUnit !== undefined ? overrideUnit : durationUnit;
     const warnValToSave = Math.max(1, overrideWarnVal !== undefined ? overrideWarnVal : warningDurationValue);
     const warnUnitToSave = overrideWarnUnit !== undefined ? overrideWarnUnit : warningDurationUnit;
+
+    // Validate that warning duration is strictly less than total logout duration
+    const totalDurationSec = unitToSave === 'hours' ? valToSave * 3600 : valToSave * 60;
+    const totalWarnSec = warnUnitToSave === 'minutes' ? warnValToSave * 60 : warnValToSave;
+
+    if (enabledToSave && totalWarnSec >= totalDurationSec) {
+      showNotification('Warning duration must be less than the total logout duration.');
+      return;
+    }
 
     const payload: AutoLogoutSettings = {
       enabled: enabledToSave,

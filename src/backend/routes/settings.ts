@@ -54,34 +54,34 @@ router.get('/auto-logout', async (req, res) => {
         return res.json({
           enabled: finalEnabled,
           automaticLogoutEnabled: finalEnabled,
-          durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 30,
+          durationValue: Number(parsed.durationValue) > 0 ? Number(parsed.durationValue) : 2,
           durationUnit: parsed.durationUnit === 'hours' ? 'hours' : 'minutes',
-          warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 30,
+          warningDurationValue: Number(parsed.warningDurationValue) > 0 ? Number(parsed.warningDurationValue) : 10,
           warningDurationUnit: parsed.warningDurationUnit === 'minutes' ? 'minutes' : 'seconds',
           isConfigured
         });
       }
     }
 
-    const defaultEnabled = envVal !== undefined ? envVal : false;
+    const defaultEnabled = envVal !== undefined ? envVal : true;
     res.json({
       enabled: defaultEnabled,
       automaticLogoutEnabled: defaultEnabled,
-      durationValue: 30,
+      durationValue: 2,
       durationUnit: 'minutes',
-      warningDurationValue: 30,
+      warningDurationValue: 10,
       warningDurationUnit: 'seconds',
       isConfigured: false
     });
   } catch (err: any) {
     console.error('Error fetching auto-logout settings:', err);
-    const defaultEnabled = envVal !== undefined ? envVal : false;
+    const defaultEnabled = envVal !== undefined ? envVal : true;
     res.json({
       enabled: defaultEnabled,
       automaticLogoutEnabled: defaultEnabled,
-      durationValue: 30,
+      durationValue: 2,
       durationUnit: 'minutes',
-      warningDurationValue: 30,
+      warningDurationValue: 10,
       warningDurationUnit: 'seconds',
       isConfigured: false
     });

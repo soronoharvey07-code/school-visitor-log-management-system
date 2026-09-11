@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Menu, X, Shield, LayoutDashboard, UserPlus, Users, Calendar, BarChart2, Settings, LogOut, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
+import { Menu, X, Shield, LayoutDashboard, UserPlus, Users, Calendar, BarChart2, Settings, LogOut, Eye, EyeOff, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import rhmcLogo from './assets/images/rhmc-logo.webp';
 import { API } from './api';
 import { DashboardView } from './components/views/DashboardView';
@@ -66,6 +66,10 @@ export default function App() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningCountdown, setWarningCountdown] = useState(15);
   const [showInvalidCredentialsModal, setShowInvalidCredentialsModal] = useState(false);
+  const [loginErrorTitle, setLoginErrorTitle] = useState('Invalid Credentials');
+  const [loginErrorMessage, setLoginErrorMessage] = useState('Username or password is incorrect. Please try again.');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const isLoggingInRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [time, setTime] = useState(new Date('2026-07-07T13:37:24'));
   const menuRef = useRef<HTMLDivElement>(null);
@@ -346,6 +350,8 @@ export default function App() {
 
         // Note: Persistent settings in auto_logout_settings and automaticLogoutEnabled are NOT modified!
         setCurrentUser(null);
+        setIsLoggingIn(false);
+        isLoggingInRef.current = false;
         setShowWarningModal(false);
         setIsMenuOpen(false);
         setShowLogoutModal(false);
@@ -476,6 +482,12 @@ export default function App() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoggingInRef.current) {
+      return;
+    }
+    isLoggingInRef.current = true;
+    setIsLoggingIn(true);
+
     const formData = new FormData(e.currentTarget);
     const username = (formData.get('username') as string).trim();
     const password = (formData.get('password') as string).trim();
@@ -486,21 +498,47 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
+        if (res.status === 401) {
+          setLoginErrorTitle('Invalid Credentials');
+          setLoginErrorMessage('Username or password is incorrect. Please try again.');
+        } else if (res.status === 503) {
+          setLoginErrorTitle('Service Initializing');
+          setLoginErrorMessage(data?.error || 'Authentication service is initializing. Please try again in a moment.');
+        } else {
+          setLoginErrorTitle('Login Failed');
+          setLoginErrorMessage(data?.error || 'An unexpected error occurred during login. Please try again.');
+        }
         setShowInvalidCredentialsModal(true);
         return;
       }
+
+      if (!data || !data.token || !data.user) {
+        setLoginErrorTitle('Login Failed');
+        setLoginErrorMessage('Invalid response received from authentication server. Please try again.');
+        setShowInvalidCredentialsModal(true);
+        return;
+      }
+
       sessionStorage.setItem('token', data.token);
 
       // Load saved Automatic Logout configuration from server
       let currentAutoLogout = getStoredAutoLogoutSettings();
       console.log('[AUTO-LOGOUT] LOAD SETTINGS - Initial from localStorage:', currentAutoLogout);
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         const headers: Record<string, string> = { Authorization: `Bearer ${data.token}` };
-        const autoLogoutRes = await fetch('/api/settings/auto-logout', { headers });
+        const autoLogoutRes = await fetch('/api/settings/auto-logout', {
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         if (autoLogoutRes.ok) {
-          const fetchedSettings = await autoLogoutRes.json();
+          const fetchedSettings = await autoLogoutRes.json().catch(() => null);
           if (fetchedSettings && typeof fetchedSettings === 'object') {
             console.log('[AUTO-LOGOUT] LOAD SETTINGS - Fetched on login:', fetchedSettings);
             if (fetchedSettings.isConfigured || !currentAutoLogout.isConfigured) {
@@ -531,7 +569,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.warn('[AUTO-LOGOUT] Could not refresh auto-logout settings on login:', err);
+        console.warn('[AUTO-LOGOUT] Could not refresh auto-logout settings on login (using cached):', err);
       }
 
       const isEnabled = Boolean(
@@ -565,8 +603,14 @@ export default function App() {
       } else {
         setCurrentTab('dashboard');
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('[LOGIN ERROR]', err);
+      setLoginErrorTitle('Connection Error');
+      setLoginErrorMessage('Unable to connect to the server. Please check your network connection and try again.');
       setShowInvalidCredentialsModal(true);
+    } finally {
+      isLoggingInRef.current = false;
+      setIsLoggingIn(false);
     }
   };
 
@@ -583,6 +627,8 @@ export default function App() {
     localStorage.removeItem('auth_last_activity');
     localStorage.removeItem('auth_login_time');
     setCurrentUser(null);
+    setIsLoggingIn(false);
+    isLoggingInRef.current = false;
     setShowWarningModal(false);
     setShowAutoLogoutModal(false);
     setIsMenuOpen(false);
@@ -792,25 +838,31 @@ export default function App() {
             <div>
               <label className="block text-sm font-semibold text-label-fg mb-1.5">Username</label>
               <input 
+                id="login-username-input"
                 name="username"
                 type="text" 
                 required
+                disabled={isLoggingIn}
                 placeholder="Enter admin or guard"
-                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
+                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-label-fg mb-1.5">Password</label>
               <div className="relative">
                 <input 
+                  id="login-password-input"
                   name="password"
                   type={showPassword ? "text" : "password"} 
-                  className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-3 pr-10 text-sm text-main-fg focus:outline-none focus:border-blue-500"
+                  disabled={isLoggingIn}
+                  className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-3 pr-10 text-sm text-main-fg focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button
+                  id="login-toggle-password-button"
                   type="button"
+                  disabled={isLoggingIn}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-fg hover:text-main-fg transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-fg hover:text-main-fg disabled:opacity-50 transition-colors p-1"
                   title={showPassword ? "Hide password" : "Show password"}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
@@ -818,8 +870,20 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 shadow-sm">
-              Login
+            <button 
+              id="login-submit-button"
+              type="submit" 
+              disabled={isLoggingIn}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 shadow-sm flex items-center justify-center gap-2"
+            >
+              {isLoggingIn ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Logging in...</span>
+                </>
+              ) : (
+                'Login'
+              )}
             </button>
           </div>
         </form>
@@ -831,11 +895,16 @@ export default function App() {
               <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 mx-auto mb-4 flex items-center justify-center">
                 <AlertCircle size={26} />
               </div>
-              <h3 className="text-lg font-bold text-main-fg mb-2">Invalid Credentials</h3>
-              <p className="text-sm text-muted-fg mb-6 font-medium">Username or password is incorrect. Please try again.</p>
+              <h3 className="text-lg font-bold text-main-fg mb-2">{loginErrorTitle}</h3>
+              <p className="text-sm text-muted-fg mb-6 font-medium">{loginErrorMessage}</p>
               <button
+                id="login-error-modal-ok-button"
                 type="button"
-                onClick={() => setShowInvalidCredentialsModal(false)}
+                onClick={() => {
+                  setShowInvalidCredentialsModal(false);
+                  setLoginErrorTitle('Invalid Credentials');
+                  setLoginErrorMessage('Username or password is incorrect. Please try again.');
+                }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm"
               >
                 OK

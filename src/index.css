@@ -49,7 +49,7 @@ body {
   /* Suppress default browser header and footer (URL, date, title) */
   @page {
     size: auto;
-    margin: 0mm !important;
+    margin: 0 !important;
   }
 
   html, body {
@@ -59,6 +59,17 @@ body {
     color: #111827 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Prevent browser from displaying anchor link URLs */
+  a, a:visited {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  a[href]:after, a[href]::after {
+    content: "" !important;
+    display: none !important;
   }
 
   /* Hide all app UI elements during print */
@@ -82,12 +93,25 @@ body {
     width: 100% !important;
     min-height: 100% !important;
     margin: 0 !important;
-    padding: 16mm 18mm 16mm 18mm !important;
+    padding: 14mm 16mm 14mm 16mm !important;
     box-sizing: border-box !important;
     background: #ffffff !important;
     color: #111827 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  }
+
+  #printable-report thead {
+    display: table-header-group !important;
+  }
+
+  #printable-report tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-report th, #printable-report td {
+    page-break-inside: avoid !important;
   }
 }

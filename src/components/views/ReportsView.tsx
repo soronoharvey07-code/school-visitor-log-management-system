@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { BarChart2, FileText, BarChart, LineChart, FileSpreadsheet, Printer, Clock, ClipboardList, X } from 'lucide-react';
+import { RHMC_LOGO_DATA_URI } from '../../assets/images/rhmcLogoDataUri';
 import rhmcLogo from '../../assets/images/rhmc-logo.webp';
 import { Visitor } from '../../types';
-import { formatManilaReportTimestamp, formatManilaDateTime, isSameManilaDay, isWithinManilaDays, isWithinManilaMonth } from '../../utils/dateUtils';
+import { 
+  formatManilaDateTime, 
+  isSameManilaDay, 
+  isWithinManilaDays, 
+  isWithinManilaMonth 
+} from '../../utils/dateUtils';
 
 interface ReportsViewProps {
   visitors?: Visitor[];
@@ -11,7 +17,7 @@ interface ReportsViewProps {
 
 export function ReportsView({ visitors = [] }: ReportsViewProps) {
   const [reportType, setReportType] = useState<string | null>(null);
-  const [printTimestamp, setPrintTimestamp] = useState<string>(() => formatManilaReportTimestamp());
+  const [printType, setPrintType] = useState<string | null>(null);
 
   const handleOpenReport = (type: string) => {
     setReportType(type);
@@ -21,14 +27,15 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
     setReportType(null);
   };
 
-  const handlePrint = () => {
-    const currentTimestamp = formatManilaReportTimestamp();
+  const handlePrint = (customType?: string | null) => {
+    const typeToPrint = customType !== undefined ? customType : reportType;
+    
     flushSync(() => {
-      setPrintTimestamp(currentTimestamp);
+      setPrintType(typeToPrint);
     });
 
     try {
-      // Create an isolated printing iframe to prevent browser header/footer URLs
+      // Create an isolated printing iframe to suppress browser header/footer URLs completely
       const printContainer = document.getElementById('printable-report');
       if (!printContainer) {
         window.print();
@@ -42,6 +49,7 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
 
       const iframe = document.createElement('iframe');
       iframe.id = 'report-print-iframe';
+      iframe.src = 'about:blank';
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
       iframe.style.bottom = '0';
@@ -61,20 +69,33 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
         <!DOCTYPE html>
         <html>
           <head>
+            <meta charset="utf-8" />
             <title></title>
             <style>
               @page {
                 size: auto;
-                margin: 0mm !important;
+                margin: 0 !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
               }
               *, *::before, *::after {
                 box-sizing: border-box;
                 margin: 0;
                 padding: 0;
               }
+              a, a:visited {
+                text-decoration: none !important;
+                color: inherit !important;
+              }
+              a[href]:after, a[href]::after {
+                content: "" !important;
+                display: none !important;
+              }
               body {
-                margin: 0;
-                padding: 16mm 18mm 16mm 18mm;
+                margin: 0 !important;
+                padding: 14mm 16mm 14mm 16mm !important;
                 background: #ffffff;
                 color: #1e293b;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -84,63 +105,90 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
               .header {
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                padding-bottom: 16px;
-                margin-bottom: 24px;
-                border-bottom: 2px solid #e2e8f0;
+                justify-content: flex-start;
+                padding-bottom: 12px;
+                margin-bottom: 14px;
+                border-bottom: 2px solid #cbd5e1;
+                page-break-after: avoid;
+                break-after: avoid;
               }
-              .logo-box {
-                width: 80px;
-                flex-shrink: 0;
+              .header-content {
                 display: flex;
                 align-items: center;
-                justify-content: flex-start;
+                gap: 14px;
               }
               .logo-img {
-                height: 64px;
-                width: 64px;
+                width: 52px;
+                height: 52px;
+                max-width: 52px;
+                max-height: 52px;
                 object-fit: contain;
+                flex-shrink: 0;
+                display: block;
               }
-              .title-box {
-                flex: 1;
-                text-align: center;
-                padding: 0 16px;
+              .college-info {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
               }
-              .title {
-                font-size: 24px;
+              .college-name {
+                font-size: 20px;
                 font-weight: 700;
                 color: #0f172a;
-                letter-spacing: -0.025em;
+                letter-spacing: -0.015em;
+                line-height: 1.25;
               }
-              .subtitle {
-                font-size: 13px;
+              .college-sub {
+                font-size: 11px;
+                font-weight: 600;
                 color: #64748b;
-                font-weight: 500;
-                margin-top: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-top: 3px;
               }
-              .spacer {
-                width: 80px;
-                flex-shrink: 0;
+              .report-title-section {
+                text-align: center;
+                margin-bottom: 14px;
+                page-break-after: avoid;
+                break-after: avoid;
+              }
+              .report-title {
+                font-size: 18px;
+                font-weight: 800;
+                color: #0f172a;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
               }
               table {
                 width: 100%;
                 text-align: left;
                 border-collapse: collapse;
+                page-break-inside: auto;
+              }
+              thead {
+                display: table-header-group;
+              }
+              tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
               }
               th {
-                padding: 12px 10px;
-                font-size: 13px;
+                padding: 9px 8px;
+                font-size: 11px;
                 font-weight: 700;
-                color: #1e293b;
-                border-top: 1px solid #e2e8f0;
-                border-bottom: 2px solid #e2e8f0;
+                color: #0f172a;
+                border-top: 1px solid #cbd5e1;
+                border-bottom: 2px solid #cbd5e1;
+                background-color: #f8fafc;
+                text-transform: uppercase;
+                letter-spacing: 0.025em;
               }
               td {
-                padding: 12px 10px;
-                font-size: 13px;
+                padding: 8px 8px;
+                font-size: 12px;
                 color: #334155;
-                border-bottom: 1px solid #f1f5f9;
-                vertical-align: top;
+                border-bottom: 1px solid #e2e8f0;
+                vertical-align: middle;
               }
               .font-mono {
                 font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -157,13 +205,6 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
               .text-center {
                 text-align: center;
               }
-              .status-badge {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                font-weight: 500;
-                color: #1e293b;
-              }
             </style>
           </head>
           <body>
@@ -175,16 +216,50 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
       frameDoc.open();
       frameDoc.write(htmlContent);
       frameDoc.close();
+      if (frameDoc.title) {
+        frameDoc.title = '';
+      }
 
-      setTimeout(() => {
+      const triggerPrint = () => {
         if (iframe.contentWindow) {
           iframe.contentWindow.focus();
           iframe.contentWindow.print();
         }
         setTimeout(() => {
           iframe.remove();
-        }, 1500);
-      }, 300);
+        }, 2000);
+      };
+
+      // Check if all images inside iframe are already loaded/decoded
+      const imgs = Array.from(frameDoc.images);
+      if (imgs.length === 0) {
+        setTimeout(triggerPrint, 200);
+      } else {
+        let loadedCount = 0;
+        const total = imgs.length;
+        const onDone = () => {
+          loadedCount++;
+          if (loadedCount >= total) {
+            setTimeout(triggerPrint, 150);
+          }
+        };
+
+        imgs.forEach(img => {
+          if (img.complete && img.naturalWidth > 0) {
+            onDone();
+          } else {
+            img.onload = onDone;
+            img.onerror = onDone;
+          }
+        });
+
+        // Safety fallback timeout
+        setTimeout(() => {
+          if (loadedCount < total) {
+            triggerPrint();
+          }
+        }, 1000);
+      }
     } catch (err) {
       console.warn('Iframe print failed, falling back to window.print():', err);
       if (typeof window !== 'undefined') {
@@ -309,8 +384,9 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
             </button>
             <button 
               onClick={() => {
+                const currentType = reportType;
                 closeReport();
-                handlePrint();
+                handlePrint(currentType);
               }}
               className="px-4 py-2 bg-[#3b82f6] hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
             >
@@ -322,6 +398,23 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
       </div>
     );
   };
+
+  // Active printable report calculation (based on printType)
+  const printableVisitors = visitors.filter(v => {
+    const time = v.signInTime;
+    if (printType === 'Daily') {
+      return isSameManilaDay(time) || (Array.isArray(v.history) && v.history.some(h => isSameManilaDay(h.signInTime)));
+    }
+    if (printType === 'Weekly') {
+      return isWithinManilaDays(time, 7) || (Array.isArray(v.history) && v.history.some(h => isWithinManilaDays(h.signInTime, 7)));
+    }
+    if (printType === 'Monthly') {
+      return isWithinManilaMonth(time) || (Array.isArray(v.history) && v.history.some(h => isWithinManilaMonth(h.signInTime)));
+    }
+    return true;
+  });
+
+  const printableTitle = printType ? `${printType.toUpperCase()} VISITOR REPORT` : 'VISITOR REPORT';
 
   return (
     <>
@@ -369,7 +462,7 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
               CSV
             </button>
             <button 
-              onClick={handlePrint}
+              onClick={() => handlePrint(null)}
               className="flex items-center gap-2 px-4 py-2 bg-[#3b82f6] hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               <Printer size={16} />
@@ -395,73 +488,100 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
 
       {/* Printable Visitor Report Document */}
       <div id="printable-report" className="hidden print:block font-sans text-slate-800 p-8 bg-white max-w-4xl mx-auto">
-        {/* Professional Header: RHMC Logo on Left, Centered Title & Date/Time */}
-        <div className="header flex items-center justify-between pb-4 mb-6 border-b-2 border-slate-200">
-          <div className="logo-box w-20 flex-shrink-0 flex items-center justify-start">
+        {/* Printable Report Header: College Logo on LEFT, College Name beside Logo */}
+        <div className="header flex items-center justify-between pb-3.5 mb-4 border-b-2 border-slate-300">
+          <div className="header-content flex items-center gap-3.5">
             <img 
-              src={rhmcLogo} 
-              alt="RHMC Logo" 
-              className="logo-img h-16 w-16 object-contain"
+              src={RHMC_LOGO_DATA_URI || rhmcLogo} 
+              alt="Rosemont Hills Montessori College Logo" 
+              className="logo-img h-14 w-14 object-contain flex-shrink-0"
+              width="56"
+              height="56"
             />
+            <div className="college-info flex flex-col justify-center">
+              <span className="college-name text-xl font-bold text-slate-900 tracking-tight leading-tight">
+                Rosemont Hills Montessori College
+              </span>
+              <span className="college-sub text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
+                School Visitor Log Management System
+              </span>
+            </div>
           </div>
-
-          <div className="title-box flex-1 text-center px-4">
-            <h1 className="title text-2xl font-bold text-slate-900 tracking-tight">
-              Visitor Report
-            </h1>
-            <p className="subtitle text-xs text-slate-500 font-medium mt-1">
-              {printTimestamp}
-            </p>
-          </div>
-
-          <div className="spacer w-20 flex-shrink-0" aria-hidden="true" />
         </div>
 
-        <table className="w-full text-left border-collapse">
+        {/* Report Title Section */}
+        <div className="report-title-section text-center mb-4">
+          <h1 className="report-title text-lg font-extrabold text-slate-900 tracking-wider uppercase">
+            {printableTitle}
+          </h1>
+        </div>
+
+        {/* Visitor Records Table - Moved upward directly beneath title */}
+        <table className="w-full text-left border-collapse report-table">
           <thead>
-            <tr className="border-t border-b-2 border-slate-200 text-slate-800 text-sm font-bold">
-              <th className="py-3 px-2.5 w-[14%]">Visitor ID</th>
-              <th className="py-3 px-2.5 w-[22%]">Name</th>
-              <th className="py-3 px-2.5 w-[11%]">Type</th>
-              <th className="py-3 px-2.5 w-[16%]">ID Type</th>
-              <th className="py-3 px-2.5 w-[18%]">Contact</th>
-              <th className="py-3 px-2.5 w-[8%] text-center">Visits</th>
-              <th className="py-3 px-2.5 w-[11%]">Status</th>
+            <tr className="border-t border-b-2 border-slate-300 text-slate-900 text-xs font-bold uppercase tracking-wider bg-slate-50">
+              <th className="py-2.5 px-2 w-[11%]">Visitor ID</th>
+              <th className="py-2.5 px-2 w-[18%]">Name</th>
+              <th className="py-2.5 px-2 w-[10%]">Type</th>
+              <th className="py-2.5 px-2 w-[11%]">ID Type</th>
+              <th className="py-2.5 px-2 w-[12%]">Contact</th>
+              <th className="py-2.5 px-2 w-[12%]">Time-In</th>
+              <th className="py-2.5 px-2 w-[12%]">Time-Out</th>
+              <th className="py-2.5 px-2 w-[6%] text-center">Visits</th>
+              <th className="py-2.5 px-2 w-[8%]">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {visitors.map((visitor) => {
-              const idFormatted = visitor.idNumber 
-                ? (visitor.idNumber.startsWith('#') ? visitor.idNumber : `#${String(visitor.idNumber).padStart(4, '0')}`)
-                : `#${String(visitor.id).padStart(4, '0')}`;
-                
-              const visitsCount = visitor.history 
-                ? visitor.history.length 
-                : (visitor.status === 'pre-registered' ? 0 : 1);
+          <tbody className="divide-y divide-slate-200 text-xs text-slate-700">
+            {printableVisitors.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-slate-500 font-medium">
+                  No visitor records found for this reporting period.
+                </td>
+              </tr>
+            ) : (
+              printableVisitors.map((visitor) => {
+                const idFormatted = visitor.idNumber 
+                  ? (visitor.idNumber.startsWith('#') ? visitor.idNumber : `#${String(visitor.idNumber).padStart(4, '0')}`)
+                  : `#${String(visitor.id).padStart(4, '0')}`;
+                  
+                const visitsCount = visitor.history 
+                  ? visitor.history.length 
+                  : (visitor.status === 'pre-registered' ? 0 : 1);
 
-              const statusLabel = (visitor.status as string) === 'signed-in' || (visitor.status as string) === 'inside'
-                ? 'Inside'
-                : visitor.status === 'pre-registered'
-                ? 'Pre-Registered'
-                : 'Left';
+                const statusLabel = (visitor.status as string) === 'signed-in' || (visitor.status as string) === 'inside'
+                  ? 'Inside'
+                  : visitor.status === 'pre-registered'
+                  ? 'Pre-Registered'
+                  : 'Left';
 
-              return (
-                <tr key={visitor.id} className="align-top">
-                  <td className="py-3.5 px-2.5 font-mono font-medium text-slate-900">{idFormatted}</td>
-                  <td className="py-3.5 px-2.5 font-semibold text-slate-900">{visitor.name}</td>
-                  <td className="py-3.5 px-2.5">{visitor.visitorType || 'Guest'}</td>
-                  <td className="py-3.5 px-2.5">{visitor.idType || 'School ID'}</td>
-                  <td className="py-3.5 px-2.5 font-mono text-slate-600">{visitor.contactNumber || '—'}</td>
-                  <td className="py-3.5 px-2.5 text-center font-medium">{visitsCount}</td>
-                  <td className="py-3.5 px-2.5 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                      <span>⌛</span>
-                      <span>{statusLabel}</span>
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+                const timeInFormatted = visitor.signInTime ? formatManilaDateTime(visitor.signInTime) : '—';
+                const timeOutFormatted = visitor.signOutTime ? formatManilaDateTime(visitor.signOutTime) : (statusLabel === 'Inside' ? 'Inside Campus' : '—');
+
+                return (
+                  <tr key={visitor.id} className="align-middle">
+                    <td className="py-2.5 px-2 font-mono font-semibold text-slate-900">{idFormatted}</td>
+                    <td className="py-2.5 px-2 font-semibold text-slate-900">{visitor.name}</td>
+                    <td className="py-2.5 px-2">{visitor.visitorType || 'Guest'}</td>
+                    <td className="py-2.5 px-2">{visitor.idType || 'School ID'}</td>
+                    <td className="py-2.5 px-2 font-mono text-slate-600">{visitor.contactNumber || '—'}</td>
+                    <td className="py-2.5 px-2 text-slate-700">{timeInFormatted}</td>
+                    <td className="py-2.5 px-2 text-slate-700">{timeOutFormatted}</td>
+                    <td className="py-2.5 px-2 text-center font-medium">{visitsCount}</td>
+                    <td className="py-2.5 px-2 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                        statusLabel === 'Inside' 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                          : statusLabel === 'Pre-Registered'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}>
+                        {statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

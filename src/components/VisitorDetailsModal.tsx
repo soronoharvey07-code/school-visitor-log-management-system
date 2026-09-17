@@ -310,6 +310,7 @@ export function VisitorDetailsModal({ visitor, allVisitors, onClose, onDelete, o
                   </EditField>
                   <EditField label="ID Type">
                     <select value={idType} onChange={(e) => setIdType(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
+                      <option value="School ID">School ID</option>
                       <option value="Driver's License">Driver's License</option>
                       <option value="National ID (PhilSys)">National ID (PhilSys)</option>
                       <option value="Passport">Passport</option>

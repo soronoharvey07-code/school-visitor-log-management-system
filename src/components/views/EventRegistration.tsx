@@ -684,6 +684,7 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
                       required
                     >
                       <option value="" disabled>Select ID type</option>
+                      <option value="School ID">School ID</option>
                       <option value="Driver's License">Driver's License</option>
                       <option value="National ID (PhilSys)">National ID (PhilSys)</option>
                       <option value="Passport">Passport</option>

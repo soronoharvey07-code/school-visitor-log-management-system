@@ -129,10 +129,26 @@ export function AllVisitorsView({ visitors = [], setVisitors }: AllVisitorsViewP
     }
   };
 
-  const handleEditVisitor = (updatedVisitor: Visitor) => {
+  const handleEditVisitor = async (updatedVisitor: Visitor) => {
     if (setVisitors) {
       setVisitors(prev => prev.map(v => v.id === updatedVisitor.id ? updatedVisitor : v));
       setSelectedVisitor(updatedVisitor);
+    }
+    try {
+      const formData = new FormData();
+      if (updatedVisitor.name) formData.append('full_name', updatedVisitor.name);
+      if (updatedVisitor.visitorType) formData.append('visitor_type', updatedVisitor.visitorType);
+      if (updatedVisitor.visiting) formData.append('visit_info', updatedVisitor.visiting);
+      if (updatedVisitor.idType) formData.append('id_type', updatedVisitor.idType);
+      if (updatedVisitor.idNumber) formData.append('id_number', updatedVisitor.idNumber);
+      if (updatedVisitor.contactNumber) formData.append('contact_number', updatedVisitor.contactNumber);
+      if (updatedVisitor.address) formData.append('address', updatedVisitor.address);
+      if (updatedVisitor.purpose) formData.append('purpose', updatedVisitor.purpose);
+      if (updatedVisitor.notes) formData.append('notes', updatedVisitor.notes);
+      if (updatedVisitor.photoDataUrl) formData.append('photoDataUrl', updatedVisitor.photoDataUrl);
+      await API.updateVisitor(updatedVisitor.id, formData).catch(() => {});
+    } catch {
+      // ignore
     }
   };
 

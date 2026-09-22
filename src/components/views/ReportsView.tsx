@@ -503,7 +503,7 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
                 Rosemont Hills Montessori College
               </span>
               <span className="college-sub text-[11px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
-                School Visitor Log Management System
+                School Visitor Log System
               </span>
             </div>
           </div>

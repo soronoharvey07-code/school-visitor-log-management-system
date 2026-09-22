@@ -831,7 +831,7 @@ export default function App() {
             <div className="w-20 h-20 mb-3 flex items-center justify-center overflow-hidden">
               <img src={rhmcLogo} alt="Rosemont Hills Montessori College Logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-xl font-bold text-heading-fg">School Visitor Log Management System</h2>
+            <h2 className="text-xl font-bold text-heading-fg">School Visitor Log System</h2>
             <p className="text-sm text-muted-fg font-medium mt-1">Rosemont Hills Montessori College</p>
           </div>
           <div className="space-y-4">
@@ -949,7 +949,7 @@ export default function App() {
               <img src={rhmcLogo} alt="Rosemont Hills Montessori College Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-[22px] leading-tight font-bold text-heading-fg tracking-tight">School Visitor Log Management System</h1>
+              <h1 className="text-xl sm:text-[22px] leading-tight font-bold text-heading-fg tracking-tight">School Visitor Log System</h1>
               <p className="text-sm text-muted-fg font-medium">Rosemont Hills Montessori College</p>
             </div>
           </div>

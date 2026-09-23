@@ -589,30 +589,30 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
 
       {/* Registration Card */}
       <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
           <div className="flex items-center gap-2">
-            <UserPlus size={18} className="text-blue-600 dark:text-blue-400" />
+            <UserPlus size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h2 className="text-base font-semibold text-main-fg">Register Visitor</h2>
           </div>
-          <div className="flex items-center gap-2 bg-app-bg border border-app-border px-3 py-1 rounded-full">
-             <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+          <div className="flex items-center gap-2 bg-app-bg border border-app-border px-2.5 py-1 rounded-full">
+             <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
              <span className="text-xs font-medium text-label-fg">Camera Ready</span>
           </div>
         </div>
         
-        <div className="p-6">
-          <div className="border border-dashed border-app-border rounded-xl p-6 mb-6 flex flex-col items-center justify-center bg-app-bg/50">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="p-4 sm:p-6">
+          <div className="border border-dashed border-app-border rounded-xl p-4 sm:p-6 mb-5 sm:mb-6 flex flex-col items-center justify-center bg-app-bg/50">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <span className="text-sm font-semibold text-main-fg">Visitor Photo</span>
             </div>
-            <div className="w-24 h-24 mb-4">
-              <VisitorAvatar src={photoDataUrl} alt="Visitor Photo" className="w-24 h-24" iconSize={40} />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 mb-4">
+              <VisitorAvatar src={photoDataUrl} alt="Visitor Photo" className="w-20 h-20 sm:w-24 sm:h-24" iconSize={36} />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 w-full sm:w-auto">
               <button 
                 type="button"
                 onClick={startCamera}
-                className="flex items-center gap-2 px-4 py-2 bg-card-bg border border-app-border rounded-lg text-sm font-medium text-label-fg hover:bg-hover-bg transition-colors shadow-sm"
+                className="w-full sm:w-auto min-h-[42px] flex items-center justify-center gap-2 px-4 py-2 bg-card-bg border border-app-border rounded-lg text-sm font-medium text-label-fg hover:bg-hover-bg transition-colors shadow-sm cursor-pointer"
               >
                 <Camera size={16} />
                 {photoDataUrl ? 'Retake Photo' : 'Take Photo'}
@@ -620,7 +620,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
               <button 
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 bg-card-bg border border-app-border rounded-lg text-sm font-medium text-label-fg hover:bg-hover-bg transition-colors shadow-sm"
+                className="w-full sm:w-auto min-h-[42px] flex items-center justify-center gap-2 px-4 py-2 bg-card-bg border border-app-border rounded-lg text-sm font-medium text-label-fg hover:bg-hover-bg transition-colors shadow-sm cursor-pointer"
               >
                 <Upload size={16} />
                 Upload Photo
@@ -635,9 +635,9 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             </div>
           </div>
 
-          <div className="flex gap-3 mb-6 relative">
+          <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-5 sm:mb-6 relative">
             <div className="relative flex-1">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-fg" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-fg pointer-events-none" />
               <input 
                 type="text" 
                 value={searchQuery}
@@ -651,7 +651,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
                   setTimeout(() => setShowDropdown(false), 200);
                 }}
                 placeholder="Type name, phone, or ID to find returning visitor..."
-                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-10 pr-4 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
+                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-10 pr-4 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
               />
               {showDropdown && searchQuery && (
                 <div className="absolute z-10 w-full mt-1 bg-card-bg border border-app-border rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto">
@@ -682,7 +682,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             
             <button
               onClick={() => setIsScannerOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium text-sm flex-shrink-0"
+              className="min-h-[42px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-semibold text-sm shrink-0 cursor-pointer"
             >
               <QrCode size={18} />
               Scan QR
@@ -692,7 +692,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
             <div>
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Visitor Type <span className="text-red-500">*</span></label>
-              <select value={visitorType} onChange={(e) => setVisitorType(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
+              <select value={visitorType} onChange={(e) => setVisitorType(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
                 <option value="">Select type</option>
                 <option value="Parent/Guardian">Parent/Guardian</option>
                 <option value="Student">Student</option>
@@ -713,11 +713,11 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             </div>
             <div>
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Visit Info</label>
-              <input value={visitInfo} onChange={(e) => setVisitInfo(e.target.value)} type="text" placeholder="Who are they meeting (employee, office, etc.)?" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
+              <input value={visitInfo} onChange={(e) => setVisitInfo(e.target.value)} type="text" placeholder="Who are they meeting (employee, office, etc.)?" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-label-fg mb-1.5">ID Type <span className="text-red-500">*</span></label>
-              <select value={idType} onChange={(e) => setIdType(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
+              <select value={idType} onChange={(e) => setIdType(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
                 <option value="">Select ID type</option>
                 <option value="School ID">School ID</option>
                 <option value="Driver's License">Driver's License</option>
@@ -738,19 +738,19 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             </div>
             <div>
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Full Name <span className="text-red-500">*</span></label>
-              <input value={name} onChange={(e) => setName(e.target.value)} type="text" placeholder="As shown on ID" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
+              <input value={name} onChange={(e) => setName(e.target.value)} type="text" placeholder="As shown on ID" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Contact Number</label>
-              <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} type="text" placeholder="Phone number" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
+              <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} type="text" placeholder="Phone number" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} type="text" placeholder="Enter your full address" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
+              <input value={address} onChange={(e) => setAddress(e.target.value)} type="text" placeholder="Enter your full address" className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg" />
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Purpose of Visit <span className="text-red-500">*</span></label>
-              <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
+              <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 appearance-none font-medium">
                 <option value="">Select purpose</option>
                 <option value="Meeting a Teacher">Meeting a Teacher</option>
                 <option value="Student Pickup">Student Pickup</option>
@@ -763,7 +763,7 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-label-fg mb-1.5">Notes (Optional)</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional information..." rows={3} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 resize-y placeholder:text-muted-fg"></textarea>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional information..." rows={3} className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 resize-y placeholder:text-muted-fg"></textarea>
             </div>
           </div>
 
@@ -780,12 +780,12 @@ export function RegisterView({ visitors = [], setVisitors }: RegisterViewProps) 
             </div>
           )}
 
-          <div className="flex items-center gap-4">
-            <button onClick={handleSubmit} className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <button onClick={handleSubmit} className="flex-1 min-h-[44px] bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
               <UserPlus size={18} />
               Register & Time-In
             </button>
-            <button onClick={clearForm} className="px-6 py-2.5 bg-card-bg border border-app-border text-label-fg font-medium rounded-lg hover:bg-hover-bg transition-colors shadow-sm">
+            <button onClick={clearForm} className="min-h-[44px] px-6 py-2.5 bg-card-bg border border-app-border text-label-fg font-semibold rounded-lg hover:bg-hover-bg transition-colors shadow-sm cursor-pointer">
               Clear
             </button>
           </div>

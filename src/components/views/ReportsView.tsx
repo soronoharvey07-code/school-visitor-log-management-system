@@ -418,52 +418,52 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
 
   return (
     <>
-      <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[500px] no-print">
-        <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+      <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[450px] sm:min-h-[500px] no-print">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
           <div className="flex items-center gap-2">
-            <BarChart2 size={18} className="text-blue-600 dark:text-blue-400" />
+            <BarChart2 size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h2 className="text-base font-semibold text-main-fg">Reports</h2>
           </div>
-          <span className="text-sm font-medium text-muted-fg">Visitor analytics & exports</span>
+          <span className="text-xs sm:text-sm font-medium text-muted-fg">Visitor analytics & exports</span>
         </div>
         
-        <div className="p-6 border-b border-app-border">
-          <div className="flex items-center gap-2 mb-4">
-            <FileText size={16} className="text-label-fg" />
+        <div className="p-4 sm:p-6 border-b border-app-border">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <FileText size={16} className="text-label-fg shrink-0" />
             <h3 className="text-sm font-semibold text-main-fg">Generate & Export</h3>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button 
               onClick={() => handleOpenReport('Daily')}
-              className="flex items-center gap-2 px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <BarChart size={16} className="text-emerald-600 dark:text-emerald-400" />
               Daily
             </button>
             <button 
               onClick={() => handleOpenReport('Weekly')}
-              className="flex items-center gap-2 px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <LineChart size={16} className="text-orange-600 dark:text-orange-400" />
               Weekly
             </button>
             <button 
               onClick={() => handleOpenReport('Monthly')}
-              className="flex items-center gap-2 px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-app-bg border border-app-border hover:bg-hover-bg text-label-fg rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <LineChart size={16} className="text-blue-600 dark:text-blue-400" />
               Monthly
             </button>
             <button 
               onClick={handleExportCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors ml-1 shadow-sm"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <FileSpreadsheet size={16} />
               CSV
             </button>
             <button 
               onClick={() => handlePrint(null)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#3b82f6] hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-[#3b82f6] hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <Printer size={16} />
               Print
@@ -471,14 +471,14 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
           </div>
         </div>
 
-        <div className="p-6 flex-1 flex flex-col">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock size={16} className="text-label-fg" />
+        <div className="p-4 sm:p-6 flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Clock size={16} className="text-label-fg shrink-0" />
             <h3 className="text-sm font-semibold text-main-fg">Recent Activity</h3>
           </div>
           
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg py-10">
-            <ClipboardList size={40} className="mb-4 text-slate-300 dark:text-slate-600" />
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg py-10 px-4 text-center">
+            <ClipboardList size={40} className="mb-3 text-slate-300 dark:text-slate-600" />
             <p className="text-sm font-medium">No recent activity yet.</p>
           </div>
         </div>

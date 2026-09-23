@@ -92,58 +92,106 @@ export function DashboardView({ visitors = [], setVisitors }: DashboardViewProps
   };
 
   return (
-    <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-      <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+    <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[450px] sm:min-h-[500px]">
+      <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
         <div className="flex items-center gap-2">
-          <Building2 size={18} className="text-blue-600 dark:text-blue-400" />
+          <Building2 size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
           <h2 className="text-base font-semibold text-main-fg">Dashboard</h2>
         </div>
-        <span className="text-sm font-medium text-muted-fg">{activeVisitors.length} inside</span>
+        <span className="text-xs sm:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          {activeVisitors.length} inside
+        </span>
       </div>
       
       {successMessage && (
-        <div className="mx-6 mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-lg flex items-center gap-2">
-          <CheckCircle2 size={16} />
-          Visitor has been successfully checked out.
+        <div className="mx-4 sm:mx-6 mt-3 sm:mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-lg flex items-center gap-2">
+          <CheckCircle2 size={16} className="shrink-0" />
+          <span>Visitor has been successfully checked out.</span>
         </div>
       )}
 
       <div className="flex-1 flex flex-col">
-        <div className="grid grid-cols-6 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
-          <div>PHOTO</div>
-          <div>TIME-IN</div>
-          <div>NAME</div>
-          <div>PURPOSE</div>
-          <div>VISITS</div>
-          <div>ACTION</div>
-        </div>
         {activeVisitors.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg py-20">
-            <Building2 size={48} className="mb-4 text-slate-400 dark:text-slate-500 opacity-60" />
-            <p className="text-sm font-medium">No active visitors at this time</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg py-16 sm:py-20 px-4 text-center">
+            <Building2 size={44} className="mb-3 text-slate-400 dark:text-slate-500 opacity-60" />
+            <p className="text-sm font-medium">No active visitors inside campus at this time</p>
           </div>
         ) : (
-          <div className="divide-y divide-app-border flex-1">
-            {activeVisitors.map((visitor) => (
-              <div key={visitor.id} className="grid grid-cols-6 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors">
-                <div>
-                  <VisitorAvatar src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} alt={visitor.name} className="w-10 h-10" iconSize={20} />
+          <>
+            {/* Mobile Cards (Phones & Small Screens) */}
+            <div className="md:hidden divide-y divide-app-border flex-1">
+              {activeVisitors.map((visitor) => (
+                <div key={visitor.id} className="p-4 flex flex-col gap-3 hover:bg-hover-bg/50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <VisitorAvatar 
+                        src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} 
+                        alt={visitor.name} 
+                        className="w-12 h-12 shrink-0 rounded-full" 
+                        iconSize={22} 
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-bold text-main-fg truncate">{visitor.name}</h4>
+                        <p className="text-xs text-muted-fg truncate mt-0.5">
+                          {visitor.purpose || 'Visit'} {visitor.visiting ? `• ${visitor.visiting}` : ''}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[11px] font-medium text-label-fg bg-app-bg px-2 py-0.5 rounded border border-app-border">
+                            In: {formatTime(visitor.signInTime)}
+                          </span>
+                          <span className="text-[11px] font-medium text-muted-fg">
+                            {getVisits(visitor.name)} {getVisits(visitor.name) === 1 ? 'visit' : 'visits'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <button 
+                      onClick={() => handleTimeOut(visitor.id)}
+                      className="w-full min-h-[42px] py-2 px-4 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white active:bg-red-600 active:text-white rounded-lg transition-colors font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      Time-Out Visitor
+                    </button>
+                  </div>
                 </div>
-                <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signInTime)}</div>
-                <div className="text-sm font-semibold text-main-fg">{visitor.name}</div>
-                <div className="text-sm text-muted-fg">{visitor.purpose}</div>
-                <div className="text-sm text-muted-fg font-medium">{getVisits(visitor.name)}</div>
-                <div>
-                  <button 
-                    onClick={() => handleTimeOut(visitor.id)}
-                    className="text-xs px-3 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-lg transition-colors font-medium"
-                  >
-                    Time-Out
-                  </button>
-                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View (Tablets & Desktops) */}
+            <div className="hidden md:block flex-1 overflow-x-auto">
+              <div className="grid grid-cols-6 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
+                <div>PHOTO</div>
+                <div>TIME-IN</div>
+                <div>NAME</div>
+                <div>PURPOSE</div>
+                <div>VISITS</div>
+                <div className="text-right">ACTION</div>
               </div>
-            ))}
-          </div>
+              <div className="divide-y divide-app-border">
+                {activeVisitors.map((visitor) => (
+                  <div key={visitor.id} className="grid grid-cols-6 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors">
+                    <div>
+                      <VisitorAvatar src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} alt={visitor.name} className="w-10 h-10" iconSize={20} />
+                    </div>
+                    <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signInTime)}</div>
+                    <div className="text-sm font-semibold text-main-fg truncate">{visitor.name}</div>
+                    <div className="text-sm text-muted-fg truncate">{visitor.purpose}</div>
+                    <div className="text-sm text-muted-fg font-medium">{getVisits(visitor.name)}</div>
+                    <div className="text-right">
+                      <button 
+                        onClick={() => handleTimeOut(visitor.id)}
+                        className="text-xs px-3.5 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white rounded-lg transition-colors font-semibold"
+                      >
+                        Time-Out
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

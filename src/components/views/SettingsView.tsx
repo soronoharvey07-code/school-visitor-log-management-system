@@ -362,40 +362,40 @@ export function SettingsView({
 
   return (
     <div className="w-full bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col transition-all">
-      <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+      <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
         <div className="flex items-center gap-2">
-          <Settings size={18} className="text-blue-600 dark:text-blue-400" />
+          <Settings size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
           <h2 className="text-base font-semibold text-main-fg">Settings</h2>
         </div>
-        <span className="text-sm font-medium text-muted-fg">System Configuration</span>
+        <span className="text-xs sm:text-sm font-medium text-muted-fg">System Configuration</span>
       </div>
       
       {message && (
-        <div className="mx-6 mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-medium rounded-lg text-sm flex items-center gap-2 animate-in fade-in">
+        <div className="mx-4 sm:mx-6 mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-medium rounded-lg text-sm flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 size={16} />
           <span>{message}</span>
         </div>
       )}
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Moon size={16} className="text-blue-600 dark:text-blue-400" />
+          <div className="flex items-center gap-2 mb-2.5 sm:mb-3">
+            <Moon size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400">Appearance</h3>
           </div>
-          <div className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5 flex items-center justify-between">
-            <div className="pr-4">
+          <div className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="pr-2 sm:pr-4">
               <h4 className="font-semibold text-main-fg mb-1">Dark Mode</h4>
-              <p className="text-sm text-muted-fg">Uses a dark theme to reduce eye strain in low-light environments.</p>
+              <p className="text-xs sm:text-sm text-muted-fg">Uses a dark theme to reduce eye strain in low-light environments.</p>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className={`flex items-center gap-1.5 text-sm font-semibold ${isDarkMode ? 'text-yellow-400' : 'text-slate-600'}`}>
+            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-app-border/40">
+              <span className={`flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${isDarkMode ? 'text-yellow-400' : 'text-slate-600'}`}>
                 {isDarkMode ? <Moon size={14} className="fill-current" /> : <Sun size={14} />}
                 {isDarkMode ? 'Dark' : 'Light'}
               </span>
               <button 
                 onClick={() => setIsDarkMode && setIsDarkMode(!isDarkMode)}
-                className={`relative inline-block w-11 h-6 rounded-full transition-colors ${isDarkMode ? 'bg-[#3b82f6]' : 'bg-slate-300'}`}
+                className={`relative inline-block w-11 h-6 rounded-full transition-colors cursor-pointer ${isDarkMode ? 'bg-[#3b82f6]' : 'bg-slate-300 dark:bg-slate-700'}`}
                 aria-label="Toggle dark mode"
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${isDarkMode ? 'left-6' : 'left-1'}`}></div>
@@ -407,15 +407,15 @@ export function SettingsView({
         <hr className="border-t border-app-border" />
 
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Database size={16} className="text-blue-600 dark:text-blue-400" />
+          <div className="flex items-center gap-2 mb-2.5 sm:mb-3">
+            <Database size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400">Data Management</h3>
           </div>
-          <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 mb-3">
             <button 
               onClick={handleBackup}
               disabled={isClearing || isRestoring}
-              className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-4 sm:px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Download size={16} />
               Backup
@@ -423,7 +423,7 @@ export function SettingsView({
             <button 
               onClick={handleLoadClick}
               disabled={isClearing || isRestoring}
-              className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[40px] flex items-center justify-center gap-2 px-4 sm:px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
             >
               {isRestoring ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
               Load
@@ -438,13 +438,13 @@ export function SettingsView({
             <button 
               onClick={() => setShowClearModal(true)}
               disabled={isClearing || isRestoring}
-              className="flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+              className="w-full sm:w-auto min-h-[40px] flex items-center justify-center gap-2 px-4 sm:px-5 py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Trash2 size={16} />
               Clear Data
             </button>
           </div>
-          <p className="text-sm text-muted-fg font-medium">Backup all system data • Restore from a backup file • Reset to clean state</p>
+          <p className="text-xs sm:text-sm text-muted-fg font-medium">Backup all system data • Restore from a backup file • Reset to clean state</p>
         </div>
 
         {isAdmin && (
@@ -459,17 +459,17 @@ export function SettingsView({
 
               <div className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5 space-y-4">
                 {/* Enable/Disable Row */}
-                <div className="flex items-center justify-between">
-                  <div className="pr-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="pr-2 sm:pr-4">
                     <h4 className="font-semibold text-main-fg mb-1">Enable Automatic Logout</h4>
-                    <p className="text-sm text-muted-fg">
+                    <p className="text-xs sm:text-sm text-muted-fg">
                       Automatically logs out both Admin and Security Personnel/Guard sessions when the configured time expires.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-app-border/40">
                     <span
                       id="auto-logout-status-badge"
-                      className={`text-sm font-semibold ${autoLogoutEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-fg'}`}
+                      className={`text-xs sm:text-sm font-semibold ${autoLogoutEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-fg'}`}
                     >
                       Automatic Logout: {autoLogoutEnabled ? 'ON' : 'OFF'}
                     </span>
@@ -483,7 +483,7 @@ export function SettingsView({
                         setAutoLogoutEnabled(newEnabled);
                         handleSaveAutoLogout(newEnabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit);
                       }}
-                      className={`relative inline-block w-11 h-6 rounded-full transition-colors ${autoLogoutEnabled ? 'bg-[#3b82f6]' : 'bg-slate-300 dark:bg-slate-700'}`}
+                      className={`relative inline-block w-11 h-6 rounded-full transition-colors cursor-pointer ${autoLogoutEnabled ? 'bg-[#3b82f6]' : 'bg-slate-300 dark:bg-slate-700'}`}
                       aria-label={`Toggle automatic logout, currently Automatic Logout: ${autoLogoutEnabled ? 'ON' : 'OFF'}`}
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${autoLogoutEnabled ? 'left-6' : 'left-1'}`}></div>
@@ -494,9 +494,9 @@ export function SettingsView({
                 {/* Duration Configuration */}
                 <div className="pt-3 border-t border-app-border space-y-5">
                   {/* 2. Logout Duration */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-end">
                     <div>
-                      <label className="block text-sm font-semibold text-label-fg mb-1.5" htmlFor="auto-logout-duration-input">
+                      <label className="block text-xs sm:text-sm font-semibold text-label-fg mb-1.5" htmlFor="auto-logout-duration-input">
                         Logout Duration
                       </label>
                       <div className="flex items-center gap-2">
@@ -510,7 +510,7 @@ export function SettingsView({
                             const val = Math.max(1, parseInt(e.target.value, 10) || 1);
                             setDurationValue(val);
                           }}
-                          className="w-28 bg-card-bg border border-app-border rounded-lg py-2 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 font-semibold text-center"
+                          className="w-24 sm:w-28 bg-card-bg border border-app-border rounded-lg py-2 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 font-semibold text-center"
                         />
                         <div className="inline-flex rounded-lg border border-app-border bg-card-bg p-1">
                           <button
@@ -519,7 +519,7 @@ export function SettingsView({
                             onClick={() => {
                               setDurationUnit('minutes');
                             }}
-                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                            className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                               durationUnit === 'minutes'
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'text-muted-fg hover:text-main-fg'
@@ -533,7 +533,7 @@ export function SettingsView({
                             onClick={() => {
                               setDurationUnit('hours');
                             }}
-                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                            className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                               durationUnit === 'hours'
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'text-muted-fg hover:text-main-fg'
@@ -562,7 +562,7 @@ export function SettingsView({
                             setDurationValue(preset.val);
                             setDurationUnit(preset.unit);
                           }}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
+                          className={`px-2 py-1 text-xs font-semibold rounded-md border transition-colors cursor-pointer ${
                             durationValue === preset.val && durationUnit === preset.unit
                               ? 'bg-blue-600/10 border-blue-600/40 text-blue-600 dark:text-blue-400'
                               : 'bg-card-bg border-app-border text-muted-fg hover:text-main-fg hover:bg-hover-bg'
@@ -576,9 +576,9 @@ export function SettingsView({
 
                   {/* 3. Warning Duration (Last Setting) */}
                   <div className="pt-4 border-t border-app-border">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-end">
                       <div>
-                        <label className="block text-sm font-semibold text-label-fg mb-1" htmlFor="auto-logout-warning-duration-input">
+                        <label className="block text-xs sm:text-sm font-semibold text-label-fg mb-1" htmlFor="auto-logout-warning-duration-input">
                           Warning Duration
                         </label>
                         <p className="text-xs text-muted-fg mb-2">
@@ -595,7 +595,7 @@ export function SettingsView({
                               const val = Math.max(1, parseInt(e.target.value, 10) || 1);
                               setWarningDurationValue(val);
                             }}
-                            className="w-28 bg-card-bg border border-app-border rounded-lg py-2 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 font-semibold text-center"
+                            className="w-24 sm:w-28 bg-card-bg border border-app-border rounded-lg py-2 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 font-semibold text-center"
                           />
                           <div className="inline-flex rounded-lg border border-app-border bg-card-bg p-1">
                             <button
@@ -604,7 +604,7 @@ export function SettingsView({
                               onClick={() => {
                                 setWarningDurationUnit('seconds');
                               }}
-                              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                              className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                                 warningDurationUnit === 'seconds'
                                   ? 'bg-blue-600 text-white shadow-sm'
                                   : 'text-muted-fg hover:text-main-fg'
@@ -618,7 +618,7 @@ export function SettingsView({
                               onClick={() => {
                                 setWarningDurationUnit('minutes');
                               }}
-                              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                              className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                                 warningDurationUnit === 'minutes'
                                   ? 'bg-blue-600 text-white shadow-sm'
                                   : 'text-muted-fg hover:text-main-fg'
@@ -647,7 +647,7 @@ export function SettingsView({
                               setWarningDurationValue(preset.val);
                               setWarningDurationUnit(preset.unit);
                             }}
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
+                            className={`px-2 py-1 text-xs font-semibold rounded-md border transition-colors cursor-pointer ${
                               warningDurationValue === preset.val && warningDurationUnit === preset.unit
                                 ? 'bg-blue-600/10 border-blue-600/40 text-blue-600 dark:text-blue-400'
                                 : 'bg-card-bg border-app-border text-muted-fg hover:text-main-fg hover:bg-hover-bg'
@@ -660,7 +660,7 @@ export function SettingsView({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-app-border">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-app-border">
                     <div className="text-xs text-muted-fg font-medium flex items-center gap-1.5">
                       <ShieldCheck size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
                       <span>
@@ -673,7 +673,7 @@ export function SettingsView({
                       type="button"
                       onClick={() => handleSaveAutoLogout(autoLogoutEnabled, durationValue, durationUnit, warningDurationValue, warningDurationUnit)}
                       disabled={isSavingAutoLogout}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                      className="w-full sm:w-auto min-h-[38px] flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                     >
                       {isSavingAutoLogout ? (
                         <>
@@ -699,7 +699,7 @@ export function SettingsView({
       {showClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="bg-card-bg border border-app-border rounded-xl w-full max-w-[460px] shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
               <div className="flex items-center gap-2 text-red-500">
                 <AlertTriangle size={18} />
                 <h3 className="text-base font-bold text-main-fg">Confirm Clear Data</h3>
@@ -713,7 +713,7 @@ export function SettingsView({
               </button>
             </div>
             
-            <div className="p-6 space-y-3">
+            <div className="p-4 sm:p-6 space-y-3">
               <p className="text-sm font-medium text-label-fg leading-relaxed">
                 Are you sure you want to clear the system data?
               </p>
@@ -735,12 +735,12 @@ export function SettingsView({
               </p>
             </div>
 
-            <div className="px-6 py-4 bg-th-bg border-t border-app-border flex justify-end items-center gap-3">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-th-bg border-t border-app-border flex justify-end items-center gap-3">
               <button 
                 type="button"
                 onClick={() => setShowClearModal(false)}
                 disabled={isClearing}
-                className="px-4 py-2 bg-transparent border border-app-border text-label-fg font-medium rounded-lg hover:bg-hover-bg transition-colors text-sm disabled:opacity-50"
+                className="px-4 py-2 bg-transparent border border-app-border text-label-fg font-medium rounded-lg hover:bg-hover-bg transition-colors text-sm disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
@@ -748,7 +748,7 @@ export function SettingsView({
                 type="button"
                 onClick={handleConfirmClear}
                 disabled={isClearing}
-                className="flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors shadow-sm text-sm disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors shadow-sm text-sm disabled:opacity-50 cursor-pointer"
               >
                 {isClearing ? (
                   <>

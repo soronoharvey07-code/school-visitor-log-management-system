@@ -183,48 +183,48 @@ export function EventView() {
   };
 
   return (
-    <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[500px] relative">
-      <div className="px-6 py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
+    <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col min-h-[450px] sm:min-h-[500px] relative">
+      <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex justify-between items-center bg-th-bg">
         <div className="flex items-center gap-2">
-          <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
+          <Calendar size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
           <h2 className="text-base font-semibold text-main-fg">Event</h2>
         </div>
-        <span className="text-sm font-medium text-muted-fg">Manage Visitor Registration</span>
+        <span className="text-xs sm:text-sm font-medium text-muted-fg">Manage Visitor Registration</span>
       </div>
-      <div className="p-6 flex-1 flex flex-col">
-        <div className="mb-6">
+      <div className="p-4 sm:p-6 flex-1 flex flex-col">
+        <div className="mb-5 sm:mb-6">
           <button 
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#3b82f6] hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-[#3b82f6] hover:bg-blue-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm cursor-pointer min-h-[38px]"
           >
             <CalendarPlus size={16} />
-            Create Event
+            <span>Create Event</span>
           </button>
         </div>
         
         {events.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg">
-            <CalendarPlus size={48} className="mb-4 text-slate-300 dark:text-slate-600" />
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-fg py-16 px-4 text-center">
+            <CalendarPlus size={44} className="mb-3 text-slate-300 dark:text-slate-600" />
             <p className="text-sm font-medium">No events created yet. Click "Create Event" to generate a registration link.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
             {events.map((event) => (
-              <div key={event.id} className="bg-app-bg border border-app-border rounded-xl p-5 flex flex-col gap-3 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
+              <div key={event.id} className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5 flex flex-col gap-3 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <h3 className="text-base font-bold text-main-fg">{(event as any).event_name || event.name}</h3>
                     <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${event.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20'}`}>
                       {event.status === 'active' ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button 
                       onClick={() => {
                         setSelectedQrEvent(event);
                         setCopiedQrLink(false);
                       }} 
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 text-xs font-semibold rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none min-h-[34px] flex items-center justify-center gap-1.5 px-3 py-1.5 border border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                       title="Generate and view Event QR Code"
                     >
                       <QrCode size={14} />
@@ -236,35 +236,35 @@ export function EventView() {
                         navigator.clipboard.writeText(link);
                         alert('Link copied to clipboard!');
                       }} 
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors"
+                      className="flex-1 sm:flex-none min-h-[34px] flex items-center justify-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors cursor-pointer"
                     >
                       <Copy size={14} />
                       Copy
                     </button>
                     <button 
                       onClick={() => window.open(getRegistrationUrl(event.id), '_blank')} 
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors"
+                      className="flex-1 sm:flex-none min-h-[34px] flex items-center justify-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors cursor-pointer"
                     >
                       <ExternalLink size={14} />
                       Open
                     </button>
                     <button 
                       onClick={() => openEditModal(event)} 
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors"
+                      className="flex-1 sm:flex-none min-h-[34px] flex items-center justify-center gap-1.5 px-3 py-1.5 border border-app-border text-label-fg text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors cursor-pointer"
                     >
                       <Edit2 size={14} />
                       Edit
                     </button>
                     <button 
                       onClick={() => toggleStatus(event.id)} 
-                      className={`flex items-center gap-1.5 px-3 py-1.5 border border-app-border text-xs font-medium rounded-lg hover:bg-hover-bg transition-colors ${event.status === 'active' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                      className={`flex-1 sm:flex-none min-h-[34px] flex items-center justify-center gap-1.5 px-3 py-1.5 border border-app-border text-xs font-semibold rounded-lg hover:bg-hover-bg transition-colors cursor-pointer ${event.status === 'active' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
                     >
                       <Power size={14} />
                       {event.status === 'active' ? 'Deactivate' : 'Activate'}
                     </button>
                     <button 
                       onClick={() => handleDelete(event.id)} 
-                      className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                      className="min-h-[34px] p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm cursor-pointer flex items-center justify-center"
                       title="Delete event"
                     >
                       <Trash2 size={14} />
@@ -272,19 +272,19 @@ export function EventView() {
                   </div>
                 </div>
                 
-                <div className="text-[13px] text-muted-fg font-medium">
+                <div className="text-xs sm:text-[13px] text-muted-fg font-medium">
                    {formatDate(event.date)} {event.location && `• ${event.location}`}
                 </div>
                 
                 {event.description && (
-                  <div className="text-[13px] text-label-fg leading-relaxed">
+                  <div className="text-xs sm:text-[13px] text-label-fg leading-relaxed">
                     {event.description}
                   </div>
                 )}
                 
-                <div className="flex items-center gap-2 text-[13px] text-label-fg bg-card-bg px-3 py-2.5 rounded-lg border border-app-border mt-2 w-fit">
+                <div className="flex items-center gap-2 text-xs sm:text-[13px] text-label-fg bg-card-bg px-3 py-2 rounded-lg border border-app-border mt-1 w-full max-w-full overflow-hidden">
                   <LinkIcon size={14} className="text-muted-fg shrink-0" />
-                  <span className="font-medium truncate">{getRegistrationUrl(event.id)}</span>
+                  <span className="font-mono text-xs truncate min-w-0 flex-1">{getRegistrationUrl(event.id)}</span>
                 </div>
               </div>
             ))}

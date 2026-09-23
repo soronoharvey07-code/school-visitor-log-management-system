@@ -249,29 +249,23 @@ export function AdminView({ users = [], setUsers, currentUser, onLogout }: Admin
       )}
 
       <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-app-border bg-th-bg flex justify-between items-center">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border bg-th-bg flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Users size={18} className="text-blue-600 dark:text-blue-400" />
+            <Users size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h2 className="text-base font-semibold text-main-fg">User Management</h2>
           </div>
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-[#3b82f6] hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 sm:py-1.5 bg-[#3b82f6] hover:bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm cursor-pointer min-h-[38px]"
           >
             <UserPlus size={16} />
-            Add User
+            <span>Add User</span>
           </button>
         </div>
         
         <div>
-          <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
-            <div>Name</div>
-            <div>Role</div>
-            <div>Status</div>
-            <div>Actions</div>
-          </div>
-          
-          <div className="divide-y divide-app-border">
+          {/* Mobile User Cards (Phones & Small Devices) */}
+          <div className="sm:hidden divide-y divide-app-border">
             {users.map(user => {
               const isAdminRole = user.role === 'Administrator' || user.role === 'admin' || user.role === 'Admin';
               const uname = String(user.username || '');
@@ -287,56 +281,145 @@ export function AdminView({ users = [], setUsers, currentUser, onLogout }: Admin
               };
 
               return (
-                <div key={user.id} className="grid grid-cols-4 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors">
-                  <div className="text-sm text-main-fg font-semibold">{name}</div>
-                  <div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${isAdminRole ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                      {roleDisplay}
-                    </span>
+                <div key={user.id} className="p-4 flex flex-col gap-3 hover:bg-hover-bg/40 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-main-fg">{name}</h4>
+                      <p className="text-xs text-muted-fg font-mono mt-0.5">@{user.username}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${isAdminRole ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}`}>
+                        {roleDisplay}
+                      </span>
+                      <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${status === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'}`}>
+                        {status}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                      {status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-icon-fg">
-                    <button onClick={() => setSelectedUser(normalizedUser)} className="hover:text-main-fg transition-colors" title="View Details"><Eye size={16} /></button>
-                    <button onClick={() => setEditingUser(normalizedUser)} className="hover:text-main-fg transition-colors" title="Edit User"><Edit2 size={16} /></button>
-                    <button onClick={() => setResetPasswordUser(normalizedUser)} className="hover:text-main-fg transition-colors" title="Change Password"><Key size={16} /></button>
-                    <button onClick={() => handleToggleStatus(normalizedUser)} className={status === 'Active' ? "text-yellow-600 dark:text-yellow-400/80 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors" : "text-emerald-600 dark:text-emerald-400/80 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"} title={status === 'Active' ? "Deactivate" : "Activate"}><Power size={16} /></button>
-                    <button onClick={() => handleDeleteUser(normalizedUser)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors" title="Delete User"><Trash2 size={16} /></button>
+
+                  {/* Mobile Actions Bar with Touch Friendly Targets */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-app-border/40">
+                    <button 
+                      onClick={() => setSelectedUser(normalizedUser)} 
+                      className="flex-1 min-h-[38px] flex items-center justify-center gap-1 px-2.5 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs font-semibold text-main-fg hover:bg-hover-bg transition-colors cursor-pointer"
+                    >
+                      <Eye size={14} className="text-blue-600 dark:text-blue-400" />
+                      <span>View</span>
+                    </button>
+                    <button 
+                      onClick={() => setEditingUser(normalizedUser)} 
+                      className="flex-1 min-h-[38px] flex items-center justify-center gap-1 px-2.5 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs font-semibold text-main-fg hover:bg-hover-bg transition-colors cursor-pointer"
+                    >
+                      <Edit2 size={14} className="text-label-fg" />
+                      <span>Edit</span>
+                    </button>
+                    <button 
+                      onClick={() => setResetPasswordUser(normalizedUser)} 
+                      className="flex-1 min-h-[38px] flex items-center justify-center gap-1 px-2.5 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs font-semibold text-main-fg hover:bg-hover-bg transition-colors cursor-pointer"
+                    >
+                      <Key size={14} className="text-amber-500" />
+                      <span>Pass</span>
+                    </button>
+                    <button 
+                      onClick={() => handleToggleStatus(normalizedUser)} 
+                      className={`min-h-[38px] px-3 py-1.5 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                        status === 'Active' 
+                          ? 'border-yellow-500/30 text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20' 
+                          : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+                      }`}
+                      title={status === 'Active' ? "Deactivate" : "Activate"}
+                    >
+                      <Power size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteUser(normalizedUser)} 
+                      className="min-h-[38px] px-3 py-1.5 border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center cursor-pointer transition-colors"
+                      title="Delete User"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Desktop User Table (Tablets & Desktops) */}
+          <div className="hidden sm:block overflow-x-auto">
+            <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
+              <div>Name</div>
+              <div>Role</div>
+              <div>Status</div>
+              <div className="text-right">Actions</div>
+            </div>
+            
+            <div className="divide-y divide-app-border">
+              {users.map(user => {
+                const isAdminRole = user.role === 'Administrator' || user.role === 'admin' || user.role === 'Admin';
+                const uname = String(user.username || '');
+                const unameLower = uname.toLowerCase();
+                const name = user.fullName || (unameLower === 'admin2026' || unameLower === 'admin' ? 'Administrator' : unameLower === 'guard' ? 'Security Personnel' : uname);
+                const status = user.status || ((user as any).active === 0 || (user as any).active === false ? 'Inactive' : 'Active');
+                const roleDisplay = isAdminRole ? 'Admin' : user.role === 'guard' || user.role === 'Guard' ? 'Guard' : user.role;
+                const normalizedUser: User = {
+                  ...user,
+                  fullName: name,
+                  status: status as 'Active' | 'Inactive',
+                  role: roleDisplay
+                };
+
+                return (
+                  <div key={user.id} className="grid grid-cols-4 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors">
+                    <div className="text-sm text-main-fg font-semibold">{name}</div>
+                    <div>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${isAdminRole ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                        {roleDisplay}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-end gap-4 text-icon-fg">
+                      <button onClick={() => setSelectedUser(normalizedUser)} className="hover:text-main-fg transition-colors p-1" title="View Details"><Eye size={16} /></button>
+                      <button onClick={() => setEditingUser(normalizedUser)} className="hover:text-main-fg transition-colors p-1" title="Edit User"><Edit2 size={16} /></button>
+                      <button onClick={() => setResetPasswordUser(normalizedUser)} className="hover:text-main-fg transition-colors p-1" title="Change Password"><Key size={16} /></button>
+                      <button onClick={() => handleToggleStatus(normalizedUser)} className={`p-1 transition-colors ${status === 'Active' ? "text-yellow-600 dark:text-yellow-400/80 hover:text-yellow-700 dark:hover:text-yellow-300" : "text-emerald-600 dark:text-emerald-400/80 hover:text-emerald-700 dark:hover:text-emerald-300"}`} title={status === 'Active' ? "Deactivate" : "Activate"}><Power size={16} /></button>
+                      <button onClick={() => handleDeleteUser(normalizedUser)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors p-1" title="Delete User"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-app-border bg-th-bg">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border bg-th-bg">
           <div className="flex items-center gap-2">
-            <Shield size={18} className="text-blue-600 dark:text-blue-400" />
+            <Shield size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h2 className="text-base font-semibold text-main-fg">Role Permissions</h2>
           </div>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-app-bg border border-app-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <ShieldCheck size={18} className="text-blue-600 dark:text-blue-400" />
               <h3 className="font-semibold text-main-fg">Administrator</h3>
             </div>
-            <ul className="space-y-2 text-sm text-muted-fg list-disc list-inside marker:text-slate-400 dark:marker:text-[#2a344a]">
+            <ul className="space-y-2 text-xs sm:text-sm text-muted-fg list-disc list-inside marker:text-slate-400 dark:marker:text-[#2a344a]">
               <li>Full access to all system features</li>
               <li>Can manage users, settings, visitors, reports, and event registration links</li>
             </ul>
           </div>
-          <div className="bg-app-bg border border-app-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-app-bg border border-app-border rounded-xl p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <ShieldAlert size={18} className="text-emerald-600 dark:text-emerald-400" />
               <h3 className="font-semibold text-main-fg">Guard</h3>
             </div>
-            <ul className="space-y-2 text-sm text-muted-fg list-disc list-inside marker:text-slate-400 dark:marker:text-[#2a344a]">
+            <ul className="space-y-2 text-xs sm:text-sm text-muted-fg list-disc list-inside marker:text-slate-400 dark:marker:text-[#2a344a]">
               <li>Register visitors</li>
               <li>View and search visitor records</li>
               <li>Check visitors in and out</li>

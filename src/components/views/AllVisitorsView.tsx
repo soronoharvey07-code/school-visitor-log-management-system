@@ -183,11 +183,11 @@ export function AllVisitorsView({ visitors = [], setVisitors }: AllVisitorsViewP
         />
       )}
 
-      <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+      <div className="bg-card-bg rounded-xl border border-app-border shadow-sm overflow-hidden min-h-[450px] sm:min-h-[500px] flex flex-col">
         {/* Header with Title & Stats */}
-        <div className="px-6 py-4 border-b border-app-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-th-bg">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-app-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-th-bg">
           <div className="flex items-center gap-2">
-            <Users size={18} className="text-blue-600 dark:text-blue-400" />
+            <Users size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <h2 className="text-base font-semibold text-main-fg">Visitors</h2>
             <span className="ml-2 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               {visitors.length} {visitors.length === 1 ? 'visitor' : 'visitors'}
@@ -195,15 +195,15 @@ export function AllVisitorsView({ visitors = [], setVisitors }: AllVisitorsViewP
           </div>
 
           {/* Quick Search & Status Filter */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-fg" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-fg pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search visitors..."
-                className="w-full bg-app-bg border border-app-border rounded-lg py-1.5 pl-9 pr-3 text-xs text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
+                className="w-full bg-app-bg border border-app-border rounded-lg py-2 sm:py-1.5 pl-9 pr-3 text-sm sm:text-xs text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg"
               />
             </div>
 
@@ -211,69 +211,123 @@ export function AllVisitorsView({ visitors = [], setVisitors }: AllVisitorsViewP
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-app-bg border border-app-border rounded-lg py-1.5 px-3 text-xs text-label-fg focus:outline-none focus:border-blue-500 appearance-none pr-7 cursor-pointer font-medium"
+                className="w-full sm:w-auto bg-app-bg border border-app-border rounded-lg py-2 sm:py-1.5 pl-3 pr-8 text-sm sm:text-xs text-label-fg focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
               >
                 <option value="all">All Status</option>
                 <option value="signed-in">Inside Campus</option>
                 <option value="pre-registered">Pre-Registered</option>
                 <option value="signed-out">Left Campus</option>
               </select>
-              <Filter size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-fg pointer-events-none" />
+              <Filter size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-fg pointer-events-none" />
             </div>
           </div>
         </div>
         
         {/* Visitors Table or Empty State */}
         {filteredVisitors.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-20">
-            <User size={48} className="mb-4 text-slate-300 dark:text-slate-600" />
+          <div className="flex-1 flex flex-col items-center justify-center py-16 sm:py-20 px-4 text-center">
+            <User size={44} className="mb-3 text-slate-300 dark:text-slate-600" />
             <p className="text-muted-fg text-sm font-medium">
               {visitors.length === 0 ? 'No visitors registered yet.' : 'No visitors match your search criteria.'}
             </p>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto">
-            <div className="grid grid-cols-8 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
-              <div>PHOTO</div>
-              <div>ID NUMBER</div>
-              <div>TIME-IN</div>
-              <div>TIME-OUT</div>
-              <div>NAME</div>
-              <div>TYPE</div>
-              <div>PURPOSE</div>
-              <div>STATUS</div>
-            </div>
-            <div className="divide-y divide-app-border">
+          <>
+            {/* Mobile Card List (Phones & Small Devices) */}
+            <div className="md:hidden divide-y divide-app-border flex-1">
               {filteredVisitors.map((visitor) => (
                 <div 
                   key={visitor.id} 
                   onClick={() => setSelectedVisitor(visitor)}
-                  className="grid grid-cols-8 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors cursor-pointer"
+                  className="p-4 flex flex-col gap-2.5 hover:bg-hover-bg/60 active:bg-hover-bg transition-colors cursor-pointer"
                 >
-                  <div>
-                    <VisitorAvatar src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} alt={visitor.name} className="w-10 h-10" iconSize={20} />
-                  </div>
-                  <div className="text-sm font-semibold font-mono text-main-fg">{visitor.idNumber || '-'}</div>
-                  <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signInTime)}</div>
-                  <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signOutTime)}</div>
-                  <div className="text-sm font-semibold text-main-fg">{visitor.name}</div>
-                  <div className="text-sm text-muted-fg">{visitor.visitorType || '-'}</div>
-                  <div className="text-sm text-muted-fg">{visitor.purpose}</div>
-                  <div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold ${
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <VisitorAvatar 
+                        src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} 
+                        alt={visitor.name} 
+                        className="w-12 h-12 shrink-0 rounded-full" 
+                        iconSize={22} 
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-sm font-bold text-main-fg truncate">{visitor.name}</h4>
+                          <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                            {visitor.idNumber || '-'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-fg truncate mt-0.5">
+                          {visitor.visitorType || 'Guest'} {visitor.purpose ? `• ${visitor.purpose}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
                       visitor.status === 'signed-in' 
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                         : visitor.status === 'pre-registered'
                         ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                         : 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20'
                     }`}>
-                      {visitor.status === 'signed-in' ? 'Inside Campus' : visitor.status === 'pre-registered' ? 'Pre-Registered' : 'Left Campus'}
+                      {visitor.status === 'signed-in' ? 'Inside' : visitor.status === 'pre-registered' ? 'Pre-Reg' : 'Left'}
                     </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-label-fg pt-1 border-t border-app-border/40">
+                    <span className="text-muted-fg">In: <strong className="text-main-fg font-medium">{formatTime(visitor.signInTime)}</strong></span>
+                    <span className="text-muted-fg">Out: <strong className="text-main-fg font-medium">{formatTime(visitor.signOutTime)}</strong></span>
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold text-[11px]">View Details →</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+
+            {/* Desktop Table View (Tablets & Desktop) */}
+            <div className="hidden md:block flex-1 overflow-x-auto">
+              <div className="min-w-[760px]">
+                <div className="grid grid-cols-8 gap-4 px-6 py-3 border-b border-app-border text-xs font-semibold text-muted-fg uppercase tracking-wider bg-th-bg">
+                  <div>PHOTO</div>
+                  <div>ID NUMBER</div>
+                  <div>TIME-IN</div>
+                  <div>TIME-OUT</div>
+                  <div>NAME</div>
+                  <div>TYPE</div>
+                  <div>PURPOSE</div>
+                  <div>STATUS</div>
+                </div>
+                <div className="divide-y divide-app-border">
+                  {filteredVisitors.map((visitor) => (
+                    <div 
+                      key={visitor.id} 
+                      onClick={() => setSelectedVisitor(visitor)}
+                      className="grid grid-cols-8 gap-4 px-6 py-4 items-center hover:bg-hover-bg transition-colors cursor-pointer"
+                    >
+                      <div>
+                        <VisitorAvatar src={visitor.photo_url || visitor.photoDataUrl || visitor.photo} alt={visitor.name} className="w-10 h-10" iconSize={20} />
+                      </div>
+                      <div className="text-sm font-semibold font-mono text-main-fg truncate">{visitor.idNumber || '-'}</div>
+                      <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signInTime)}</div>
+                      <div className="text-sm font-medium text-label-fg">{formatTime(visitor.signOutTime)}</div>
+                      <div className="text-sm font-semibold text-main-fg truncate">{visitor.name}</div>
+                      <div className="text-sm text-muted-fg truncate">{visitor.visitorType || '-'}</div>
+                      <div className="text-sm text-muted-fg truncate">{visitor.purpose}</div>
+                      <div>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-semibold ${
+                          visitor.status === 'signed-in' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : visitor.status === 'pre-registered'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            : 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20'
+                        }`}>
+                          {visitor.status === 'signed-in' ? 'Inside Campus' : visitor.status === 'pre-registered' ? 'Pre-Registered' : 'Left Campus'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

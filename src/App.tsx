@@ -194,13 +194,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   
@@ -826,17 +830,17 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-app-bg font-sans flex items-center justify-center p-4">
-        <form onSubmit={handleLogin} className="bg-card-bg shadow-sm p-8 rounded-xl border border-app-border w-full max-w-md">
+        <form onSubmit={handleLogin} className="bg-card-bg shadow-sm p-5 sm:p-8 rounded-xl border border-app-border w-full max-w-md">
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-20 h-20 mb-3 flex items-center justify-center overflow-hidden">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mb-3 flex items-center justify-center overflow-hidden">
               <img src={rhmcLogo} alt="Rosemont Hills Montessori College Logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-xl font-bold text-heading-fg">School Visitor Log System</h2>
-            <p className="text-sm text-muted-fg font-medium mt-1">Rosemont Hills Montessori College</p>
+            <h2 className="text-lg sm:text-xl font-bold text-heading-fg">School Visitor Log System</h2>
+            <p className="text-xs sm:text-sm text-muted-fg font-medium mt-1">Rosemont Hills Montessori College</p>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-label-fg mb-1.5">Username</label>
+              <label className="block text-xs sm:text-sm font-semibold text-label-fg mb-1.5">Username</label>
               <input 
                 id="login-username-input"
                 name="username"
@@ -844,25 +848,25 @@ export default function App() {
                 required
                 disabled={isLoggingIn}
                 placeholder="Enter admin or guard"
-                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 px-3 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 placeholder:text-muted-fg disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-label-fg mb-1.5">Password</label>
+              <label className="block text-xs sm:text-sm font-semibold text-label-fg mb-1.5">Password</label>
               <div className="relative">
                 <input 
                   id="login-password-input"
                   name="password"
                   type={showPassword ? "text" : "password"} 
                   disabled={isLoggingIn}
-                  className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-3 pr-10 text-sm text-main-fg focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full bg-app-bg border border-app-border rounded-lg py-2.5 pl-3 pr-10 text-base sm:text-sm text-main-fg focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button
                   id="login-toggle-password-button"
                   type="button"
                   disabled={isLoggingIn}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-fg hover:text-main-fg disabled:opacity-50 transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-fg hover:text-main-fg disabled:opacity-50 transition-colors p-1 cursor-pointer"
                   title={showPassword ? "Hide password" : "Show password"}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
@@ -874,7 +878,7 @@ export default function App() {
               id="login-submit-button"
               type="submit" 
               disabled={isLoggingIn}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 shadow-sm flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-lg transition-colors mt-2 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               {isLoggingIn ? (
                 <>
@@ -905,7 +909,7 @@ export default function App() {
                   setLoginErrorTitle('Invalid Credentials');
                   setLoginErrorMessage('Username or password is incorrect. Please try again.');
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm cursor-pointer"
               >
                 OK
               </button>
@@ -927,7 +931,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAutoLogoutModal(false)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm cursor-pointer"
               >
                 OK
               </button>
@@ -940,36 +944,37 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-app-bg font-sans text-main-fg">
-      <div className="max-w-[1400px] mx-auto p-4 md:p-6 lg:p-8">
+      <div className="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
         
         {/* Header */}
-        <header className="bg-card-bg rounded-xl border border-app-border shadow-sm px-6 py-4 mb-6 flex justify-between items-center relative">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 flex items-center justify-center overflow-hidden">
+        <header className="bg-card-bg rounded-xl border border-app-border shadow-sm px-3.5 sm:px-6 py-3 sm:py-4 mb-4 sm:mb-6 flex justify-between items-center relative">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 flex-shrink-0 flex items-center justify-center overflow-hidden">
               <img src={rhmcLogo} alt="Rosemont Hills Montessori College Logo" className="w-full h-full object-contain" />
             </div>
-            <div>
-              <h1 className="text-xl sm:text-[22px] leading-tight font-bold text-heading-fg tracking-tight">School Visitor Log System</h1>
-              <p className="text-sm text-muted-fg font-medium">Rosemont Hills Montessori College</p>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-lg md:text-xl lg:text-[22px] leading-tight font-bold text-heading-fg tracking-tight truncate sm:whitespace-normal">School Visitor Log System</h1>
+              <p className="text-[11px] sm:text-xs md:text-sm text-muted-fg font-medium truncate">Rosemont Hills Montessori College</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 sm:gap-6 md:gap-8 shrink-0">
             <div className="text-right hidden sm:block">
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400 tracking-wider">{formatTime(time)}</div>
-              <div className="text-[13px] text-muted-fg font-medium mt-0.5">{formatDate(time)}</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400 tracking-wider">{formatTime(time)}</div>
+              <div className="text-xs sm:text-[13px] text-muted-fg font-medium mt-0.5">{formatDate(time)}</div>
             </div>
             <div className="relative" ref={menuRef}>
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-1 hover:bg-hover-bg rounded-lg transition-colors text-label-fg"
+                className="min-h-[44px] min-w-[44px] p-2 hover:bg-hover-bg rounded-lg transition-colors text-label-fg flex items-center justify-center cursor-pointer"
+                aria-label="Navigation Menu"
               >
-                {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+                {isMenuOpen ? <X size={26} /> : <Menu size={26} />}
               </button>
               
               {/* Dropdown Menu */}
               {isMenuOpen && (
-                <div className="absolute right-0 top-full mt-3 w-[220px] bg-card-bg border border-app-border rounded-xl shadow-2xl py-2 z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-[230px] max-w-[calc(100vw-2rem)] bg-card-bg border border-app-border rounded-xl shadow-2xl py-2 z-50 overflow-hidden">
                   {menuItems.map((item) => (
                     <button
                       key={item.id}
@@ -977,7 +982,7 @@ export default function App() {
                         setCurrentTab(item.id as Tab);
                         setIsMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-5 py-3.5 text-[15px] font-medium transition-colors ${
+                      className={`w-full min-h-[44px] flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-[15px] font-medium transition-colors cursor-pointer ${
                         currentTab === item.id 
                           ? 'bg-hover-bg text-blue-600 dark:text-blue-400 font-semibold' 
                           : 'text-label-fg hover:bg-hover-bg'
@@ -988,7 +993,7 @@ export default function App() {
                     </button>
                   ))}
                   <div className="h-px bg-app-border my-2 mx-4"></div>
-                  <button onClick={handleLogoutRequest} className="w-full flex items-center gap-3 px-5 py-3.5 text-[15px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors">
+                  <button onClick={handleLogoutRequest} className="w-full min-h-[44px] flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-[15px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer">
                     <LogOut size={18} className="text-red-600 dark:text-red-400" />
                     Logout
                   </button>

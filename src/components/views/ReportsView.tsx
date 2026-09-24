@@ -4,6 +4,7 @@ import { BarChart2, FileText, BarChart, LineChart, FileSpreadsheet, Printer, Clo
 import { RHMC_LOGO_DATA_URI } from '../../assets/images/rhmcLogoDataUri';
 import rhmcLogo from '../../assets/images/rhmc-logo.webp';
 import { Visitor } from '../../types';
+import { consolidateVisitors } from '../../utils/visitorManager';
 import { 
   formatManilaDateTime, 
   isSameManilaDay, 
@@ -18,6 +19,25 @@ interface ReportsViewProps {
 export function ReportsView({ visitors = [] }: ReportsViewProps) {
   const [reportType, setReportType] = useState<string | null>(null);
   const [printType, setPrintType] = useState<string | null>(null);
+
+  // Helper to reliably retrieve all visitor records from props or localStorage
+  const getResolvedVisitors = (): Visitor[] => {
+    if (Array.isArray(visitors) && visitors.length > 0) {
+      return visitors;
+    }
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('school-visitor-log') : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return consolidateVisitors(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Error retrieving visitors from localStorage in ReportsView:', e);
+    }
+    return Array.isArray(visitors) ? visitors : [];
+  };
 
   const handleOpenReport = (type: string) => {
     setReportType(type);
@@ -274,46 +294,103 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
     }
   };
 
+  const allVisitors = getResolvedVisitors();
+
   const handleExportCSV = () => {
-    const headers = ['Visitor ID', 'Name', 'Type', 'ID Type', 'Contact', 'Visits', 'Status', 'Date/Time'];
-    const rows = visitors.map(v => {
+    const currentVisitors = getResolvedVisitors();
+    
+    // Determine which visitors to export:
+    // If a specific report filter is active (Daily, Weekly, Monthly), filter by that period.
+    // If no filter is active, export all visitor records shown in the report.
+    const activeFilter = reportType || printType;
+    let visitorsToExport = currentVisitors;
+    
+    if (activeFilter === 'Daily') {
+      const filtered = currentVisitors.filter(v => isSameManilaDay(v.signInTime) || (Array.isArray(v.history) && v.history.some(h => isSameManilaDay(h.signInTime))));
+      if (filtered.length > 0) visitorsToExport = filtered;
+    } else if (activeFilter === 'Weekly') {
+      const filtered = currentVisitors.filter(v => isWithinManilaDays(v.signInTime, 7) || (Array.isArray(v.history) && v.history.some(h => isWithinManilaDays(h.signInTime, 7))));
+      if (filtered.length > 0) visitorsToExport = filtered;
+    } else if (activeFilter === 'Monthly') {
+      const filtered = currentVisitors.filter(v => isWithinManilaMonth(v.signInTime) || (Array.isArray(v.history) && v.history.some(h => isWithinManilaMonth(h.signInTime))));
+      if (filtered.length > 0) visitorsToExport = filtered;
+    }
+
+    const headers = [
+      'Visitor ID',
+      'Name',
+      'Type',
+      'ID Type',
+      'Contact',
+      'Time-In',
+      'Time-Out',
+      'Visits',
+      'Status'
+    ];
+
+    const escapeCsvField = (value: any): string => {
+      if (value === null || value === undefined) {
+        return '""';
+      }
+      const stringValue = String(value);
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    };
+
+    const rows = visitorsToExport.map(v => {
       const idFormatted = v.idNumber 
-        ? (v.idNumber.startsWith('#') ? v.idNumber : `#${String(v.idNumber).padStart(4, '0')}`)
+        ? (String(v.idNumber).startsWith('#') ? String(v.idNumber) : `#${String(v.idNumber).padStart(4, '0')}`)
         : `#${String(v.id).padStart(4, '0')}`;
-      const visitsCount = v.history ? v.history.length : (v.status === 'pre-registered' ? 0 : 1);
+        
+      const visitsCount = v.history && v.history.length > 0
+        ? v.history.length 
+        : (v.status === 'pre-registered' ? 0 : 1);
+
       const statusLabel = (v.status as string) === 'signed-in' || (v.status as string) === 'inside'
         ? 'Inside'
         : v.status === 'pre-registered'
         ? 'Pre-Registered'
         : 'Left';
-      
+
+      const timeInFormatted = v.signInTime ? formatManilaDateTime(v.signInTime) : '—';
+      const timeOutFormatted = v.signOutTime 
+        ? formatManilaDateTime(v.signOutTime) 
+        : (statusLabel === 'Inside' ? 'Inside Campus' : '—');
+
       return [
-        `"${idFormatted}"`,
-        `"${(v.name || '').replace(/"/g, '""')}"`,
-        `"${(v.visitorType || 'Guest').replace(/"/g, '""')}"`,
-        `"${(v.idType || 'School ID').replace(/"/g, '""')}"`,
-        `"${(v.contactNumber || '').replace(/"/g, '""')}"`,
-        visitsCount,
-        `"${statusLabel}"`,
-        `"${formatManilaDateTime(v.signInTime)}"`
+        escapeCsvField(idFormatted),
+        escapeCsvField(v.name || ''),
+        escapeCsvField(v.visitorType || 'Guest'),
+        escapeCsvField(v.idType || 'School ID'),
+        escapeCsvField(v.contactNumber || '—'),
+        escapeCsvField(timeInFormatted),
+        escapeCsvField(timeOutFormatted),
+        escapeCsvField(visitsCount),
+        escapeCsvField(statusLabel)
       ].join(',');
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const headerLine = headers.map(escapeCsvField).join(',');
+    const csvContent = [headerLine, ...rows].join('\r\n');
+
+    // Use Blob with UTF-8 BOM so Google Sheets and Excel open and display all columns and visitor records seamlessly
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `visitor-report-${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
   };
 
   const renderReportModal = () => {
     if (!reportType) return null;
 
     // Filter based on Philippine time periods
-    const filteredVisitors = visitors.filter(v => {
+    const filteredVisitors = allVisitors.filter(v => {
       const time = v.signInTime;
       if (reportType === 'Daily') {
         return isSameManilaDay(time) || (Array.isArray(v.history) && v.history.some(h => isSameManilaDay(h.signInTime)));
@@ -400,7 +477,7 @@ export function ReportsView({ visitors = [] }: ReportsViewProps) {
   };
 
   // Active printable report calculation (based on printType)
-  const printableVisitors = visitors.filter(v => {
+  const printableVisitors = allVisitors.filter(v => {
     const time = v.signInTime;
     if (printType === 'Daily') {
       return isSameManilaDay(time) || (Array.isArray(v.history) && v.history.some(h => isSameManilaDay(h.signInTime)));

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, MapPin, Camera, Upload, RefreshCw, Check, Download, Share2, Copy, CheckCheck, Sparkles, ChevronDown } from 'lucide-react';
+import { Calendar, MapPin, Camera, Upload, RefreshCw, Check, Download, Share2, Copy, CheckCheck, Sparkles, ChevronDown, ExternalLink, Globe, AlertCircle, Info, X } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Visitor, SchoolEvent } from '../../types';
 import { getNextIdNumber } from '../../utils/idSequence';
@@ -7,6 +7,7 @@ import { API } from '../../api';
 import { consolidateVisitors, registerOrUpdateVisitor } from '../../utils/visitorManager';
 import { formatManilaDate } from '../../utils/dateUtils';
 import { validateEventStatus } from '../../utils/eventValidation';
+import { isInAppBrowser, getDevicePlatform, getInAppBrowserName, openInExternalBrowser } from '../../utils/browserDetection';
 
 interface EventRegistrationProps {
   eventId: string;
@@ -17,6 +18,13 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
   const [isEventActive, setIsEventActive] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // In-App Browser Detection State (Facebook Messenger, Instagram, etc.)
+  const [inApp] = useState<boolean>(() => isInAppBrowser());
+  const [devicePlatform] = useState<'android' | 'ios' | 'other'>(() => getDevicePlatform());
+  const [inAppName] = useState<string>(() => getInAppBrowserName());
+  const [showInAppModal, setShowInAppModal] = useState<boolean>(false);
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -40,6 +48,49 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Restore pre-registered visitor pass from URL query parameters if present
+  // (Prevents data loss and avoids regeneration when opening from Messenger into external browser)
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlVisNum = searchParams.get('vis_num') || searchParams.get('reg_num');
+      const urlQrData = searchParams.get('qr_data') || searchParams.get('reg_id');
+      const urlVisName = searchParams.get('vis_name') || searchParams.get('name') || '';
+      const urlVisId = searchParams.get('vis_id');
+
+      if (urlQrData) {
+        let decoded = urlQrData;
+        try {
+          if (decoded.includes('%')) {
+            decoded = decodeURIComponent(decoded);
+          }
+          const parsed = JSON.parse(decoded);
+          const num = parsed.visitor_number || urlVisNum || '';
+          setRegisteredVisitorId(decoded);
+          setRegisteredVisitorNumber(num);
+          setSuccess(true);
+          return;
+        } catch (e) {
+          // If not valid JSON, fall back to urlVisNum
+        }
+      }
+
+      if (urlVisNum) {
+        const qrPayload = JSON.stringify({
+          type: 'pre_registration',
+          id: urlVisId ? (parseInt(urlVisId, 10) || urlVisId) : 0,
+          visitor_number: urlVisNum,
+          name: urlVisName.trim()
+        });
+        setRegisteredVisitorId(qrPayload);
+        setRegisteredVisitorNumber(urlVisNum);
+        setSuccess(true);
+      }
+    } catch (err) {
+      console.warn('Error reading registration state from URL:', err);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -326,6 +377,21 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
         setRegisteredVisitorNumber(visNum);
         setSuccess(true);
 
+        // Update URL query parameters immediately via history.replaceState
+        // so if the visitor opens the native Messenger menu ("Open in Safari" / "Open in Chrome")
+        // or reloads, the exact registration result is maintained without losing data or regenerating
+        try {
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('event', eventId);
+          currentUrl.searchParams.set('vis_num', visNum);
+          currentUrl.searchParams.set('vis_id', String(data.id));
+          currentUrl.searchParams.set('vis_name', name.trim());
+          currentUrl.searchParams.set('qr_data', qrPayload);
+          window.history.replaceState(null, '', currentUrl.toString());
+        } catch (e) {
+          console.warn('Could not update history state:', e);
+        }
+
         // Update local storage so visitor appears instantly if on same browser window
         try {
           const storage = getSharedStorage();
@@ -446,6 +512,60 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
     }
   };
 
+  const getRegistrationResultUrl = () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('event', eventId);
+      if (registeredVisitorNumber) {
+        url.searchParams.set('vis_num', registeredVisitorNumber);
+      }
+      if (registeredVisitorId) {
+        url.searchParams.set('qr_data', registeredVisitorId);
+        try {
+          const parsed = JSON.parse(registeredVisitorId);
+          if (parsed.name) url.searchParams.set('vis_name', parsed.name);
+          if (parsed.id) url.searchParams.set('vis_id', String(parsed.id));
+        } catch (e) {}
+      }
+      url.searchParams.delete('iab');
+      url.searchParams.delete('sim_iab');
+      return url.toString();
+    } catch (e) {
+      return window.location.href;
+    }
+  };
+
+  const handleOpenInBrowser = () => {
+    const targetUrl = getRegistrationResultUrl();
+    openInExternalBrowser(targetUrl);
+  };
+
+  const handleCopyResultLink = () => {
+    const targetUrl = getRegistrationResultUrl();
+    navigator.clipboard.writeText(targetUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 3000);
+  };
+
+  // Safe handler that detects in-app browser and prevents "Page can't be loaded"
+  const handleDownloadClick = () => {
+    if (inApp) {
+      // In-app browsers like Facebook Messenger fail on direct blob/anchor downloads.
+      // Display clear instruction modal with "Open in Browser" action.
+      setShowInAppModal(true);
+      return;
+    }
+    handleSaveOrShareQRCode();
+  };
+
+  const handleQRImageClick = () => {
+    if (inApp) {
+      setShowInAppModal(true);
+      return;
+    }
+    handleSaveOrShareQRCode();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-app-bg flex items-center justify-center text-muted-fg font-sans">
@@ -485,8 +605,50 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
         {registeredVisitorId && (
           <div className="bg-card-bg p-6 sm:p-8 rounded-2xl shadow-xl border border-app-border mb-6 flex flex-col items-center w-full max-w-md">
             
-            {/* QR Display Area (Canvas + Crisp Image for iOS Touch/Hold) */}
-            <div className="bg-white p-4 rounded-2xl shadow-inner border border-slate-200 relative group">
+            {/* In-App Browser (Messenger) Notice Banner */}
+            {inApp && (
+              <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 rounded-xl p-3.5 mb-4 text-left flex flex-col gap-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-xs sm:text-sm">
+                    <p className="font-semibold text-amber-700 dark:text-amber-300">
+                      To save your QR code, please open this page in your browser.
+                    </p>
+                    <p className="text-muted-fg text-xs mt-0.5 leading-relaxed">
+                      {inAppName} does not support direct file downloads. Open in your default browser (Chrome or Safari) to save or download without losing your registration.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-amber-500/20">
+                  <button
+                    type="button"
+                    onClick={handleOpenInBrowser}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+                  >
+                    <ExternalLink size={14} />
+                    Open in Browser
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyResultLink}
+                    className="px-3 py-2 bg-card-bg hover:bg-hover-bg text-main-fg border border-app-border rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    {linkCopied ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Link Copied!</span>
+                    ) : (
+                      'Copy Link'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* QR Display Area (Canvas + Crisp Image for iOS Touch/Hold & Click) */}
+            <div 
+              className="bg-white p-4 rounded-2xl shadow-inner border border-slate-200 relative group cursor-pointer"
+              onClick={handleQRImageClick}
+              title={inApp ? "To save your QR code, please open this page in your browser." : "Click or long press to save photo"}
+            >
               <QRCodeCanvas 
                 id="registration-qr"
                 value={registeredVisitorId} 
@@ -500,7 +662,7 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
                   src={qrImageUrl} 
                   alt="Registration QR Code" 
                   className="absolute inset-0 w-full h-full p-4 object-contain rounded-2xl cursor-pointer"
-                  title="Long press or right click to save photo"
+                  title={inApp ? "To save your QR code, please open this page in your browser." : "Long press or right click to save photo"}
                 />
               )}
             </div>
@@ -526,16 +688,141 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
             <div className="mt-6 w-full space-y-3">
               <button 
                 type="button"
-                onClick={handleSaveOrShareQRCode}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl transition-colors text-sm sm:text-base font-semibold shadow-md shadow-blue-500/20"
+                onClick={handleDownloadClick}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl transition-colors text-sm sm:text-base font-semibold shadow-md shadow-blue-500/20 cursor-pointer"
               >
-                <Share2 size={18} />
-                Save / Share QR Code
+                {inApp ? (
+                  <>
+                    <ExternalLink size={18} />
+                    Save QR Code (Open in Browser)
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={18} />
+                    Save / Share QR Code
+                  </>
+                )}
               </button>
 
-              <p className="text-[12px] sm:text-[13px] text-muted-fg font-medium leading-relaxed">
-                💡 <span className="font-semibold text-main-fg">iPhone / Mobile Tip:</span> Tap the button above to save to your Photos or Files, or tap & hold the QR image above.
+              {inApp ? (
+                <p className="text-[12px] sm:text-[13px] text-muted-fg font-medium leading-relaxed">
+                  ℹ️ <span className="font-semibold text-main-fg">In-App Browser Detected:</span> Tap above to open in your browser or{' '}
+                  <button 
+                    type="button" 
+                    onClick={() => setShowInAppModal(true)} 
+                    className="text-blue-600 dark:text-blue-400 underline font-semibold cursor-pointer"
+                  >
+                    view instructions
+                  </button>.
+                </p>
+              ) : (
+                <p className="text-[12px] sm:text-[13px] text-muted-fg font-medium leading-relaxed">
+                  💡 <span className="font-semibold text-main-fg">iPhone / Mobile Tip:</span> Tap the button above to save to your Photos or Files, or tap & hold the QR image above.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* In-App Browser Guidance Modal */}
+        {showInAppModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card-bg border border-app-border rounded-2xl shadow-2xl max-w-md w-full p-6 text-left relative overflow-hidden animate-in zoom-in-95 duration-150">
+              
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowInAppModal(false)}
+                className="absolute top-4 right-4 p-2 text-muted-fg hover:text-main-fg rounded-lg transition-colors hover:bg-hover-bg"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Globe size={24} />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    {inAppName}
+                  </span>
+                  <h2 className="text-base sm:text-lg font-bold text-main-fg mt-0.5 leading-snug">
+                    To save your QR code, please open this page in your browser.
+                  </h2>
+                </div>
+              </div>
+
+              <p className="text-xs sm:text-sm text-muted-fg leading-relaxed mb-5">
+                Facebook Messenger's in-app browser does not support saving files directly to your device. Open this registration in your device browser (Chrome or Safari) to save or download your QR code without losing your registration data.
               </p>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5 mb-5">
+                <button
+                  type="button"
+                  onClick={handleOpenInBrowser}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-semibold text-sm sm:text-base shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                >
+                  <ExternalLink size={18} />
+                  Open in Browser
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyResultLink}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-hover-bg hover:bg-slate-200 dark:hover:bg-slate-700 text-main-fg border border-app-border rounded-xl font-medium text-sm transition-colors cursor-pointer"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check size={16} className="text-emerald-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      Copy Link to Open in Browser
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Platform Guidance */}
+              <div className="bg-app-bg rounded-xl p-3.5 border border-app-border text-xs text-muted-fg space-y-2">
+                <div className="font-semibold text-main-fg flex items-center gap-1.5">
+                  <Info size={14} className="text-blue-500" />
+                  {devicePlatform === 'ios' ? 'How to open on iPhone / iPad:' : 'How to open on Android:'}
+                </div>
+                {devicePlatform === 'ios' ? (
+                  <ol className="list-decimal pl-4 space-y-1.5 leading-relaxed">
+                    <li>Tap the <strong>•••</strong> (three dots menu) at the top or bottom corner of Messenger.</li>
+                    <li>Tap <strong>Open in Safari</strong> or <strong>Open in Default Browser</strong>.</li>
+                    <li>Or tap <strong>Copy Link</strong> above, open Safari, and paste the URL.</li>
+                  </ol>
+                ) : (
+                  <ol className="list-decimal pl-4 space-y-1.5 leading-relaxed">
+                    <li>Tap <strong>Open in Browser</strong> above to launch Chrome directly.</li>
+                    <li>Or tap the <strong>⋮</strong> (three dots) menu in Messenger and tap <strong>Open in Chrome</strong>.</li>
+                    <li>Or tap <strong>Copy Link</strong> above, open your browser, and paste.</li>
+                  </ol>
+                )}
+                <div className="pt-2 border-t border-app-border text-[11px] text-muted-fg leading-relaxed">
+                  📸 <strong>Tip:</strong> You can also tap and hold (long-press) the QR code image on your screen to save it directly to your Photos.
+                </div>
+              </div>
+
+              {/* Dismiss button */}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowInAppModal(false)}
+                  className="w-full py-2 text-center text-xs font-semibold text-muted-fg hover:text-main-fg transition-colors cursor-pointer"
+                >
+                  Return to QR Code
+                </button>
+              </div>
+
             </div>
           </div>
         )}
@@ -577,6 +864,23 @@ export function EventRegistration({ eventId }: EventRegistrationProps) {
 
         {/* Registration Form */}
         <div className="bg-card-bg rounded-2xl shadow-sm border border-app-border overflow-hidden p-5 sm:p-8">
+          {inApp && (
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-xl p-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-blue-900 dark:text-blue-200">
+              <div className="flex items-center gap-2">
+                <Globe size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>Viewing in {inAppName}. You can complete your registration here or open in your browser.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => openInExternalBrowser(window.location.href)}
+                className="shrink-0 flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                <ExternalLink size={13} />
+                Open in Browser
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Photo Section */}

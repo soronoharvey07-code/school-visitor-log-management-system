@@ -9,7 +9,7 @@ export function isInAppBrowser(): boolean {
   // Allow URL override for manual testing/debugging: ?iab=true or ?sim_iab=1
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('iab') === 'true' || params.get('sim_iab') === '1') {
+    if (params.get('iab') === 'true' || params.get('iab') === '1' || params.get('sim_iab') === '1') {
       return true;
     }
   } catch (e) {
